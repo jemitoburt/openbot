@@ -12,6 +12,10 @@ The SQLite database is the source of truth. The account Worker and Signal do not
 
 Dashboard documents use schema version 1, stable block and item IDs, agent ownership, and a revision.
 Updates, widget edits, checklist actions, and archive operations require the current revision. A stale revision fails without writing.
+Agents can find archived documents with `list_dashboards(includeArchived:true)`, read them with
+`read_dashboard(includeArchived:true)`, and restore them with `restore_dashboard` and the current revision.
+Recovery keeps the saved blocks and checklist state. Lists return at most 500 active and archived records;
+older records remain available by ID. Remote archive access uses the optional `dashboards-archive-v1` capability.
 Desktop widget edits send only new checklist items, a recipe ID and portion count, or a routine ID.
 The service applies these changes to the saved source. It does not replace source content with a redacted display value.
 Lists contain metadata summaries. Opening one dashboard reads its content separately, within the UTF-8 size limit.

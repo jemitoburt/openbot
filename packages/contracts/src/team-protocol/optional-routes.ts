@@ -20,6 +20,7 @@ import { BROWSER_USER_CONTROL_CODECS } from "./browser-user-control-v1";
 import { CONNECTORS_CODECS } from "./connectors-v1";
 import { CONTEXT_RESET_CODECS } from "./context-reset-v1";
 import { CONVERSATION_FILE_SEARCH_CODECS } from "./conversation-file-search-v1";
+import { DASHBOARD_ARCHIVE_CODECS } from "./dashboards-archive-v1";
 import { DASHBOARD_CODECS } from "./dashboards-v1";
 import { DISCORD_ACCESS_CODECS } from "./discord-access-v1";
 import { EVENTS_CODECS } from "./events-v1";
@@ -85,6 +86,7 @@ const CODECS: ReadonlyMap<string, OptionalRouteCodec> = new Map([
   ...ANDROID_PUSH_NOTIFICATIONS_CODECS,
   ...HOSTED_SITES_CODECS,
   ...DASHBOARD_CODECS,
+  ...DASHBOARD_ARCHIVE_CODECS,
   ...WORKSPACE_DIRECTORY_CODECS,
   ...AGENT_HOST_SETTINGS_CODECS,
   ...MCP_SIGN_IN_CODECS,

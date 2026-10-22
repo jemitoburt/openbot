@@ -364,7 +364,17 @@ export type TeamApiAgentAccess = Pick<AgentAccessStore, "copyAgent" | "get" | "l
 
 export type TeamApiDashboards = Pick<
   DashboardService,
-  "pluginState" | "setInstalled" | "list" | "read" | "create" | "update" | "archive" | "toggleItem" | "editWidget"
+  | "pluginState"
+  | "setInstalled"
+  | "list"
+  | "read"
+  | "readArchived"
+  | "create"
+  | "update"
+  | "archive"
+  | "restore"
+  | "toggleItem"
+  | "editWidget"
 >;
 export type TeamApiDashboardReports = Pick<DashboardReportReader, "read">;
 

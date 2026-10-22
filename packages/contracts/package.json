@@ -130,6 +130,7 @@
     "./team-protocol/providers-v5": "./src/team-protocol/providers-v5.ts",
     "./team-protocol/host-admin-v1": "./src/team-protocol/host-admin-v1.ts",
     "./team-protocol/dashboards-v1": "./src/team-protocol/dashboards-v1.ts",
+    "./team-protocol/dashboards-archive-v1": "./src/team-protocol/dashboards-archive-v1.ts",
     "./team-protocol/hosted-sites-v1": "./src/team-protocol/hosted-sites-v1.ts",
     "./team-protocol/host-release-v1": "./src/team-protocol/host-release-v1.ts",
     "./team-protocol/host-member-update-v1": "./src/team-protocol/host-member-update-v1.ts",

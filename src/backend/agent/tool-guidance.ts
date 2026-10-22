@@ -36,8 +36,9 @@ export function toolGuidance(
     case "create_dashboard":
     case "update_dashboard":
     case "archive_dashboard":
+    case "restore_dashboard":
       return [
-        "Dashboards are saved views for your own agent. The user installs the Dashboards plugin in Marketplace first. Read the current document before an update and preserve checklist choices; a revision conflict means read again before you merge the update.",
+        "Dashboards are saved views for your own agent. The user installs the Dashboards plugin in Marketplace first. Read the current document before an update and preserve checklist choices; a revision conflict means read again before you merge the update. To restore an archived dashboard, list and read it with includeArchived true, then call restore_dashboard with its current revision. Restore the saved dashboard instead of creating a replacement.",
         "Use report blocks to show a saved answer from one of your existing routines. Get its stable routine id with openbot.list_routines. Keep the routine's normal delivery to the conversation; do not create another routine, repeat its research or generate another summary just to populate a report block. Other block content can be updated by chat or a routine through these dashboard tools.",
       ].join("\n");
     case "list_tables":

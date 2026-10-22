@@ -108,14 +108,14 @@ export class DashboardService {
         const rows = input.agentId
           ? db
               .prepare(
-                "SELECT dashboard_id, agent_id, revision, created_at, updated_at, archived_at FROM agent_dashboards WHERE archived_at IS NULL AND agent_id = ? ORDER BY updated_at DESC, dashboard_id LIMIT ?",
+                "SELECT dashboard_id, agent_id, revision, created_at, updated_at, archived_at FROM agent_dashboards WHERE (? = 1 OR archived_at IS NULL) AND agent_id = ? ORDER BY updated_at DESC, dashboard_id LIMIT ?",
               )
-              .all(input.agentId, DASHBOARD_LIMITS.documents)
+              .all(input.includeArchived === true ? 1 : 0, input.agentId, DASHBOARD_LIMITS.documents)
           : db
               .prepare(
-                "SELECT dashboard_id, agent_id, revision, created_at, updated_at, archived_at FROM agent_dashboards WHERE archived_at IS NULL ORDER BY updated_at DESC, dashboard_id LIMIT ?",
+                "SELECT dashboard_id, agent_id, revision, created_at, updated_at, archived_at FROM agent_dashboards WHERE (? = 1 OR archived_at IS NULL) ORDER BY updated_at DESC, dashboard_id LIMIT ?",
               )
-              .all(DASHBOARD_LIMITS.documents);
+              .all(input.includeArchived === true ? 1 : 0, DASHBOARD_LIMITS.documents);
         const summaries: DashboardSummary[] = [];
         for (const row of databaseRows(rows)) {
           const agentId = requiredStringColumn(row, "agent_id");
@@ -146,6 +146,11 @@ export class DashboardService {
   );
   readonly read = Effect.fn("Dashboards.read")((id: string, actor: DashboardActor = LOCAL_DASHBOARD_ACTOR) =>
     operation(() => publicDashboard(this.#read(id, actor, false))),
+  );
+  /** Explicit archive access keeps ordinary reads and updates limited to active documents. */
+  readonly readArchived = Effect.fn("Dashboards.readArchived")(
+    (id: string, actor: DashboardActor = LOCAL_DASHBOARD_ACTOR) =>
+      operation(() => publicDashboard(this.#read(id, actor, false, true))),
   );
   readonly create = Effect.fn("Dashboards.create")(
     (input: CreateDashboardInput, actor: DashboardActor = LOCAL_DASHBOARD_ACTOR) =>
@@ -272,6 +277,21 @@ export class DashboardService {
         return this.#save({ ...document, archivedAt: new Date().toISOString() }, input.revision);
       }),
   );
+  readonly restore = Effect.fn("Dashboards.restore")(
+    (input: DashboardRevisionInput, actor: DashboardActor = LOCAL_DASHBOARD_ACTOR) =>
+      operation(() => {
+        if (!isDashboardRevisionInput(input)) throw failure("invalid");
+        const document = this.#read(input.id, actor, true, true);
+        if (document.archivedAt === null || document.revision !== input.revision) throw failure("conflict");
+        const count = databaseRow(
+          this.#options.database.connection
+            .prepare("SELECT COUNT(*) AS total FROM agent_dashboards WHERE archived_at IS NULL")
+            .get(),
+        );
+        if (Number(count?.total) >= DASHBOARD_LIMITS.documents) throw failure("limit");
+        return this.#save({ ...document, archivedAt: null }, input.revision, document.archivedAt);
+      }),
+  );
   readonly toggleItem = Effect.fn("Dashboards.toggleItem")(
     (input: ToggleDashboardItemInput, actor: DashboardActor = LOCAL_DASHBOARD_ACTOR) =>
       operation(() => {
@@ -304,11 +324,13 @@ export class DashboardService {
   #requireInstalled(): void {
     if (!this.#pluginState().installed) throw failure("unavailable");
   }
-  #read(id: string, actor: DashboardActor, write: boolean): DashboardDocument {
+  #read(id: string, actor: DashboardActor, write: boolean, includeArchived = false): DashboardDocument {
     this.#requireInstalled();
     const db = this.#options.database.connection;
     const owner = databaseRow(
-      db.prepare("SELECT agent_id FROM agent_dashboards WHERE dashboard_id = ? AND archived_at IS NULL").get(id),
+      db
+        .prepare("SELECT agent_id FROM agent_dashboards WHERE dashboard_id = ? AND (? = 1 OR archived_at IS NULL)")
+        .get(id, includeArchived ? 1 : 0),
     );
     if (!owner) throw failure("notFound");
     const agentId = requiredStringColumn(owner, "agent_id");
@@ -316,7 +338,9 @@ export class DashboardService {
     if (write && !actor.canWriteAgent(agentId)) throw failure("forbidden");
     if (!this.#options.agentExists(agentId)) throw failure("notFound");
     const row = databaseRow(
-      db.prepare("SELECT document_json FROM agent_dashboards WHERE dashboard_id = ? AND archived_at IS NULL").get(id),
+      db
+        .prepare("SELECT document_json FROM agent_dashboards WHERE dashboard_id = ? AND (? = 1 OR archived_at IS NULL)")
+        .get(id, includeArchived ? 1 : 0),
     );
     if (!row) throw failure("notFound");
     const document = this.#decode(requiredStringColumn(row, "document_json"));
@@ -351,7 +375,7 @@ export class DashboardService {
         throw failure("invalid");
     }
   }
-  #save(document: DashboardDocument, revision: number): DashboardDocument {
+  #save(document: DashboardDocument, revision: number, expectedArchivedAt: string | null = null): DashboardDocument {
     if (document.revision !== revision) throw failure("conflict");
     const next = { ...document, revision: revision + 1, updatedAt: new Date().toISOString() };
     if (new TextEncoder().encode(JSON.stringify(next.blocks)).byteLength > DASHBOARD_LIMITS.documentBytes)
@@ -359,9 +383,9 @@ export class DashboardService {
     const publicDocument = publicDashboard(next);
     const result = this.#options.database.connection
       .prepare(
-        "UPDATE agent_dashboards SET revision = ?, document_json = ?, updated_at = ?, archived_at = ? WHERE dashboard_id = ? AND revision = ? AND archived_at IS NULL",
+        "UPDATE agent_dashboards SET revision = ?, document_json = ?, updated_at = ?, archived_at = ? WHERE dashboard_id = ? AND revision = ? AND archived_at IS ?",
       )
-      .run(next.revision, JSON.stringify(next), next.updatedAt, next.archivedAt, next.id, revision);
+      .run(next.revision, JSON.stringify(next), next.updatedAt, next.archivedAt, next.id, revision, expectedArchivedAt);
     if (result.changes !== 1) throw failure("conflict");
     this.#changed(next);
     return publicDocument;

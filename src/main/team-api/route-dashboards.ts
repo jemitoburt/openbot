@@ -1,5 +1,9 @@
 import { canAdministerServer } from "@openbot/contracts/ipc";
 import {
+  DASHBOARD_ARCHIVE_ROUTES,
+  DASHBOARDS_ARCHIVE_CAPABILITY,
+} from "@openbot/contracts/team-protocol/dashboards-archive-v1";
+import {
   DASHBOARD_ROUTES,
   DASHBOARDS_CAPABILITY,
   PLUGIN_ROUTES,
@@ -48,9 +52,14 @@ export async function routeDashboards(
   const { method, url, capabilities, request, json, member } = context;
   const pluginRoute = Object.values(PLUGIN_ROUTES).some((path) => path === url.pathname);
   const dashboardRoute = Object.values(DASHBOARD_ROUTES).some((path) => path === url.pathname);
-  if (method !== "POST" || (!pluginRoute && !dashboardRoute)) return "unmatched";
-  if (!dashboards || !capabilities.has(pluginRoute ? PLUGINS_CAPABILITY : DASHBOARDS_CAPABILITY))
-    throw new HttpError(400, sourceText("error.dashboard.unsupported"));
+  const archiveRoute = Object.values(DASHBOARD_ARCHIVE_ROUTES).some((path) => path === url.pathname);
+  if (method !== "POST" || (!pluginRoute && !dashboardRoute && !archiveRoute)) return "unmatched";
+  const capability = pluginRoute
+    ? PLUGINS_CAPABILITY
+    : archiveRoute
+      ? DASHBOARDS_ARCHIVE_CAPABILITY
+      : DASHBOARDS_CAPABILITY;
+  if (!dashboards || !capabilities.has(capability)) throw new HttpError(400, sourceText("error.dashboard.unsupported"));
   const actor: DashboardActor = {
     administrator: canAdministerServer(member.role),
     canReadAgent: (id) => !hiddenAgentIds.has(id) && context.agentLevel(id) !== "none",
@@ -64,9 +73,13 @@ export async function routeDashboards(
     case PLUGIN_ROUTES.setInstalled:
       return json(200, await run(dashboards.setInstalled(parse(parsePluginInstalled, body.installed), actor)));
     case DASHBOARD_ROUTES.list:
+      return json(200, await run(dashboards.list(parse(parseDashboardList, { agentId: body.agentId }), actor)));
+    case DASHBOARD_ARCHIVE_ROUTES.list:
       return json(200, await run(dashboards.list(parse(parseDashboardList, body), actor)));
     case DASHBOARD_ROUTES.read:
       return json(200, await run(dashboards.read(stringField(body, "id"), actor)));
+    case DASHBOARD_ARCHIVE_ROUTES.read:
+      return json(200, await run(dashboards.readArchived(stringField(body, "id"), actor)));
     case DASHBOARD_ROUTES.create:
       return json(200, await run(dashboards.create(parse(parseDashboardCreate, body), actor)));
     case DASHBOARD_ROUTES.update:
@@ -75,6 +88,8 @@ export async function routeDashboards(
       return json(200, await run(dashboards.editWidget(parse(parseDashboardWidgetEdit, body), actor)));
     case DASHBOARD_ROUTES.archive:
       return json(200, await run(dashboards.archive(parse(parseDashboardRevision, body), actor)));
+    case DASHBOARD_ARCHIVE_ROUTES.restore:
+      return json(200, await run(dashboards.restore(parse(parseDashboardRevision, body), actor)));
     case DASHBOARD_ROUTES.toggleItem:
       return json(200, await run(dashboards.toggleItem(parse(parseDashboardToggle, body), actor)));
     case DASHBOARD_ROUTES.report: {

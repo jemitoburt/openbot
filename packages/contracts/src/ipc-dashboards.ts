@@ -272,6 +272,7 @@ export interface DashboardDocument {
 export type DashboardSummary = Omit<DashboardDocument, "blocks">;
 export interface DashboardListInput {
   agentId?: string;
+  includeArchived?: boolean;
 }
 export interface CreateDashboardInput {
   agentId: string;
@@ -796,7 +797,11 @@ export function isPluginState(value: unknown): value is PluginState {
   );
 }
 export function isDashboardListInput(value: unknown): value is DashboardListInput {
-  return isDynamicRecord(value) && (value.agentId === undefined || isIdentifier(value.agentId));
+  return (
+    isDynamicRecord(value) &&
+    (value.agentId === undefined || isIdentifier(value.agentId)) &&
+    (value.includeArchived === undefined || typeof value.includeArchived === "boolean")
+  );
 }
 export function isCreateDashboardInput(value: unknown): value is CreateDashboardInput {
   return isDynamicRecord(value) && isIdentifier(value.agentId) && title(value.title) && isDashboardBlocks(value.blocks);

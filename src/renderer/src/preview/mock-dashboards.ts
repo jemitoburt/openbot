@@ -22,14 +22,14 @@ export function createMockDashboards(
   function requireInstalled(serverId: string) {
     if (!states.get(serverId)?.installed) throw new Error(sourceText("error.dashboard.unavailable"));
   }
-  function read(id: string, serverId: string) {
+  function read(id: string, serverId: string, includeArchived = false) {
     requireInstalled(serverId);
-    const doc = documents.get(serverId)?.find((entry) => entry.id === id && !entry.archivedAt);
+    const doc = documents.get(serverId)?.find((entry) => entry.id === id && (includeArchived || !entry.archivedAt));
     if (!doc) throw new Error(sourceText("error.dashboard.notFound"));
     return doc;
   }
-  function save(document: DashboardDocument, revision: number, serverId: string) {
-    const current = read(document.id, serverId);
+  function save(document: DashboardDocument, revision: number, serverId: string, includeArchived = false) {
+    const current = read(document.id, serverId, includeArchived);
     if (current.revision !== revision) throw new Error(sourceText("error.dashboard.conflict"));
     const next = { ...document, revision: revision + 1, updatedAt: new Date().toISOString() };
     documents.set(
@@ -58,7 +58,11 @@ export function createMockDashboards(
       requireInstalled(serverId);
       return clone(
         (documents.get(serverId) ?? [])
-          .filter((entry) => !entry.archivedAt && (!input.agentId || entry.agentId === input.agentId))
+          .filter(
+            (entry) =>
+              (input.includeArchived || !entry.archivedAt) && (!input.agentId || entry.agentId === input.agentId),
+          )
+          .slice(0, 500)
           .map((entry) => ({
             id: entry.id,
             agentId: entry.agentId,
@@ -72,6 +76,7 @@ export function createMockDashboards(
       );
     },
     read: async (id, serverId = LOCAL_SERVER_ID) => clone(read(id, serverId)),
+    readArchived: async (id, serverId = LOCAL_SERVER_ID) => clone(read(id, serverId, true)),
     create: async (input, serverId = LOCAL_SERVER_ID) => {
       requireInstalled(serverId);
       const now = new Date().toISOString();
@@ -164,6 +169,13 @@ export function createMockDashboards(
     },
     archive: async (input, serverId = LOCAL_SERVER_ID) =>
       save({ ...read(input.id, serverId), archivedAt: new Date().toISOString() }, input.revision, serverId),
+    restore: async (input, serverId = LOCAL_SERVER_ID) => {
+      const document = read(input.id, serverId, true);
+      if (!document.archivedAt) throw new Error(sourceText("error.dashboard.conflict"));
+      if ((documents.get(serverId) ?? []).filter((entry) => !entry.archivedAt).length >= 500)
+        throw new Error(sourceText("error.dashboard.limit"));
+      return save({ ...document, archivedAt: null }, input.revision, serverId, true);
+    },
     toggleItem: async (input, serverId = LOCAL_SERVER_ID) => {
       const document = read(input.id, serverId);
       const block = document.blocks.find((entry) => entry.id === input.blockId);

@@ -705,10 +705,12 @@ const openbotApi: OpenBotDesktopApi = {
   dashboards: bridgeGroup(IPC_ENDPOINTS.dashboards, {
     list: decodeDashboardSummariesFromMain,
     read: decodeDashboardFromMain,
+    readArchived: decodeDashboardFromMain,
     create: decodeDashboardFromMain,
     update: decodeDashboardFromMain,
     editWidget: decodeDashboardFromMain,
     archive: decodeDashboardFromMain,
+    restore: decodeDashboardFromMain,
     toggleItem: decodeDashboardFromMain,
     report: decodeDashboardReportFromMain,
     changed: decodeDashboardChange,

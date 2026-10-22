@@ -7,12 +7,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentAccessLevel, DashboardChange, DashboardDocument, TeamMemberSummary } from "@openbot/contracts/ipc";
 import {
+  DASHBOARD_ARCHIVE_ROUTES,
+  DASHBOARDS_ARCHIVE_CAPABILITY,
+} from "@openbot/contracts/team-protocol/dashboards-archive-v1";
+import {
   DASHBOARD_CODECS,
   DASHBOARD_ROUTES,
   DASHBOARDS_CAPABILITY,
   PLUGIN_ROUTES,
   PLUGINS_CAPABILITY,
 } from "@openbot/contracts/team-protocol/dashboards-v1";
+import { optionalRouteCodec } from "@openbot/contracts/team-protocol/optional-routes";
 import { registerSecretValue } from "@openbot/logging";
 import { Effect } from "effect";
 import { DashboardService } from "../src/backend/dashboards/dashboard-service";
@@ -52,13 +57,14 @@ const member: TeamMemberSummary = {
 const server = createServer((request, response) => {
   void (async () => {
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
-    const codec = DASHBOARD_CODECS.get(pathname);
+    const codec = optionalRouteCodec(pathname);
     const role = request.headers["x-check-role"] === "owner" ? "owner" : "member";
     const level: AgentAccessLevel = request.headers["x-check-access"] === "view" ? "view" : "chat";
     const capabilities =
       request.headers["x-check-old"] === "true"
         ? new Set<string>()
-        : new Set([PLUGINS_CAPABILITY, DASHBOARDS_CAPABILITY]);
+        : new Set([PLUGINS_CAPABILITY, DASHBOARDS_CAPABILITY, DASHBOARDS_ARCHIVE_CAPABILITY]);
+    if (request.headers["x-check-no-archive"] === "true") capabilities.delete(DASHBOARDS_ARCHIVE_CAPABILITY);
     const context: TeamApiRequestContext = {
       request,
       response,
@@ -302,10 +308,77 @@ try {
   );
   assert.equal((await call(DASHBOARD_ROUTES.list, {}, { "x-check-old": "true" })).status, 400);
   cases.push("malformed blocks and missing capabilities fail closed");
+  const archived = await call(DASHBOARD_ROUTES.archive, { id: fitness.id, revision: 2 });
+  assert.equal(archived.status, 200);
+  const archivedFitness = document(archived.value);
+  assert.equal(archivedFitness.revision, 3);
+  assert.ok(archivedFitness.archivedAt);
+  assert.equal((await call(DASHBOARD_ROUTES.read, { id: fitness.id })).status, 404);
+  assert.equal(document((await call(DASHBOARD_ARCHIVE_ROUTES.read, { id: fitness.id })).value).revision, 3);
+  const archivedSummary = decodeDashboardSummariesFromHost(
+    (await call(DASHBOARD_ARCHIVE_ROUTES.list, { agentId: "fitness", includeArchived: true })).value,
+  ).find((summary) => summary.id === fitness.id);
+  assert.equal(archivedSummary?.archivedAt, archivedFitness.archivedAt);
+  for (const path of [DASHBOARD_ROUTES.list, DASHBOARD_ARCHIVE_ROUTES.list]) {
+    const active = decodeDashboardSummariesFromHost((await call(path, { agentId: "fitness" })).value);
+    assert.equal(
+      active.some((summary) => summary.id === fitness.id),
+      false,
+    );
+  }
+  const oldList = decodeDashboardSummariesFromHost(
+    (await call(DASHBOARD_ROUTES.list, { includeArchived: true })).value,
+  );
+  assert.equal(
+    oldList.some((summary) => summary.id === fitness.id),
+    false,
+  );
+  const oldListCodec = DASHBOARD_CODECS.get(DASHBOARD_ROUTES.list);
+  assert.ok(oldListCodec);
+  assert.deepEqual(oldListCodec.request({ agentId: "fitness", includeArchived: true }), { agentId: "fitness" });
+  assert.equal((await call(DASHBOARD_ARCHIVE_ROUTES.list, { includeArchived: "true" })).status, 400);
+  for (const [path, input] of [
+    [DASHBOARD_ARCHIVE_ROUTES.list, { includeArchived: true }],
+    [DASHBOARD_ARCHIVE_ROUTES.read, { id: fitness.id }],
+    [DASHBOARD_ARCHIVE_ROUTES.restore, { id: fitness.id, revision: 3 }],
+  ] satisfies [string, { [key: string]: Json }][]) {
+    assert.equal((await call(path, input, { "x-check-no-archive": "true" })).status, 400);
+  }
+  assert.equal((await call(DASHBOARD_ROUTES.list, {}, { "x-check-no-archive": "true" })).status, 200);
+  cases.push("archive reads use a separate capability and leave frozen active-only list behavior unchanged");
+  await Effect.runPromise(service.archive({ id: chief.id, revision: 1 }));
+  assert.equal((await call(DASHBOARD_ARCHIVE_ROUTES.read, { id: chief.id })).status, 404);
+  assert.equal((await call(DASHBOARD_ARCHIVE_ROUTES.restore, { id: chief.id, revision: 2 })).status, 404);
+  assert.equal(
+    decodeDashboardSummariesFromHost((await call(DASHBOARD_ARCHIVE_ROUTES.list, { includeArchived: true })).value).some(
+      (summary) => summary.id === chief.id,
+    ),
+    false,
+  );
+  assert.equal(
+    (await call(DASHBOARD_ARCHIVE_ROUTES.read, { id: fitness.id }, { "x-check-access": "view" })).status,
+    200,
+  );
+  assert.equal(
+    (await call(DASHBOARD_ARCHIVE_ROUTES.restore, { id: fitness.id, revision: 3 }, { "x-check-access": "view" }))
+      .status,
+    403,
+  );
+  assert.equal((await call(DASHBOARD_ARCHIVE_ROUTES.restore, { id: fitness.id, revision: 2 })).status, 409);
+  const restored = await call(DASHBOARD_ARCHIVE_ROUTES.restore, { id: fitness.id, revision: 3 });
+  assert.equal(restored.status, 200);
+  const restoredFitness = document(restored.value);
+  assert.equal(restoredFitness.revision, 4);
+  assert.equal(restoredFitness.archivedAt, null);
+  assert.deepEqual(restoredFitness.blocks, archivedFitness.blocks);
+  assert.equal((await call(DASHBOARD_ARCHIVE_ROUTES.restore, { id: fitness.id, revision: 4 })).status, 409);
+  assert.equal(document((await call(DASHBOARD_ROUTES.read, { id: fitness.id })).value).revision, 4);
+  cases.push("archive recovery keeps blocks, enforces agent access, rejects stale writes, and restores active reads");
   await call(PLUGIN_ROUTES.setInstalled, { installed: false }, { "x-check-role": "owner" });
   assert.equal((await call(DASHBOARD_ROUTES.read, { id: fitness.id })).status, 409);
+  assert.equal((await call(DASHBOARD_ARCHIVE_ROUTES.read, { id: fitness.id })).status, 409);
   await call(PLUGIN_ROUTES.setInstalled, { installed: true }, { "x-check-role": "owner" });
-  assert.equal(document((await call(DASHBOARD_ROUTES.read, { id: fitness.id })).value).revision, 2);
+  assert.equal(document((await call(DASHBOARD_ROUTES.read, { id: fitness.id })).value).revision, 4);
   assert.ok(changes.some((change) => change.kind === "installation"));
   assert.ok(changes.some((change) => change.dashboardId === fitness.id));
   cases.push("uninstall disables reads; reinstall retains data and change events");

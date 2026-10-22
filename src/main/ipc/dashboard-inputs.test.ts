@@ -1,8 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { parseDashboardWidgetEdit } from "./dashboard-inputs";
+import { parseDashboardList, parseDashboardRevision, parseDashboardWidgetEdit } from "./dashboard-inputs";
 
 const base = { id: "dashboard-1", revision: 1 };
 const item = { id: "item-1", text: "Oats", checked: false };
+describe("dashboard archive IPC boundary", () => {
+  it("accepts optional archive flags and revision-checked restore requests", () => {
+    expect(parseDashboardList({})).toEqual({});
+    expect(parseDashboardList({ agentId: "fitness", includeArchived: true })).toEqual({
+      agentId: "fitness",
+      includeArchived: true,
+    });
+    expect(parseDashboardList({ includeArchived: false })).toEqual({ includeArchived: false });
+    expect(parseDashboardRevision(base)).toEqual(base);
+  });
+  it("rejects malformed archive flags and restore revisions", () => {
+    for (const includeArchived of ["true", 1, null, [], {}])
+      expect(() => parseDashboardList({ includeArchived })).toThrow();
+    for (const input of [
+      { ...base, id: "" },
+      { ...base, revision: 0 },
+      { ...base, revision: "1" },
+    ])
+      expect(() => parseDashboardRevision(input)).toThrow();
+  });
+});
 describe("dashboard widget edit IPC boundary", () => {
   it("accepts only the data needed for a widget action", () => {
     for (const edit of [

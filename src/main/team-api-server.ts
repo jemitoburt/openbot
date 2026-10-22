@@ -86,6 +86,7 @@ import {
   TEAM_UI_BLOCKS_CAPABILITY,
   type TeamCurrentCapability,
 } from "@openbot/contracts/team-protocol/current";
+import { DASHBOARDS_ARCHIVE_CAPABILITY } from "@openbot/contracts/team-protocol/dashboards-archive-v1";
 import { DASHBOARDS_CAPABILITY, PLUGINS_CAPABILITY } from "@openbot/contracts/team-protocol/dashboards-v1";
 import { FOCUS_USE_INTERVAL_MS } from "@openbot/contracts/team-protocol/focus-use-v1";
 import {
@@ -1856,6 +1857,7 @@ export class TeamApiServer {
         if (capability === PROVIDER_ACCOUNTS_CAPABILITY) return this.#options.providerAccounts !== undefined;
         if (capability === STORAGE_CAPABILITY) return this.#options.storage !== undefined;
         if (capability === PLUGINS_CAPABILITY) return this.#options.dashboards !== undefined;
+        if (capability === DASHBOARDS_ARCHIVE_CAPABILITY) return this.#options.dashboards !== undefined;
         if (capability === DASHBOARDS_CAPABILITY)
           return this.#options.dashboards !== undefined && this.#options.dashboardReports !== undefined;
         if (capability === HOSTED_SITES_CAPABILITY) return this.#options.hostedSites !== undefined;

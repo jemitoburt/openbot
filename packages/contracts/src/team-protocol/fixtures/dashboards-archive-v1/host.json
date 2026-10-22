@@ -1,0 +1,36 @@
+{
+  "summaries": [
+    {
+      "id": "dashboard-1",
+      "agentId": "fitness",
+      "title": "Training",
+      "schemaVersion": 1,
+      "revision": 2,
+      "createdAt": "2026-10-22T06:00:00.000Z",
+      "updatedAt": "2026-10-22T07:00:00.000Z",
+      "archivedAt": "2026-10-22T07:00:00.000Z"
+    }
+  ],
+  "archived": {
+    "id": "dashboard-1",
+    "agentId": "fitness",
+    "title": "Training",
+    "schemaVersion": 1,
+    "revision": 2,
+    "createdAt": "2026-10-22T06:00:00.000Z",
+    "updatedAt": "2026-10-22T07:00:00.000Z",
+    "archivedAt": "2026-10-22T07:00:00.000Z",
+    "blocks": [{ "id": "note", "type": "text", "title": "Today", "text": "Walk and stretch." }]
+  },
+  "restored": {
+    "id": "dashboard-1",
+    "agentId": "fitness",
+    "title": "Training",
+    "schemaVersion": 1,
+    "revision": 3,
+    "createdAt": "2026-10-22T06:00:00.000Z",
+    "updatedAt": "2026-10-22T08:00:00.000Z",
+    "archivedAt": null,
+    "blocks": [{ "id": "note", "type": "text", "title": "Today", "text": "Walk and stretch." }]
+  }
+}

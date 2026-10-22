@@ -684,16 +684,106 @@ try {
   );
   await Effect.runPromise(service.setInstalled(true));
   assert.equal((await Effect.runPromise(service.read(dashboard.id))).revision, 2);
-  await Effect.runPromise(service.archive({ id: dashboard.id, revision: 2 }));
+  const originalBlocks = database.connection
+    .prepare("SELECT json_extract(document_json, '$.blocks') AS blocks FROM agent_dashboards WHERE dashboard_id=?")
+    .get(dashboard.id)?.blocks;
+  const archived = await Effect.runPromise(service.archive({ id: dashboard.id, revision: 2 }));
   assert.equal(
     (await Effect.runPromise(service.list())).some((document) => document.id === dashboard.id),
     false,
+  );
+  assert.equal(Result.isFailure(await Effect.runPromise(Effect.result(service.read(dashboard.id)))), true);
+  const archivedSummary = (await Effect.runPromise(service.list({ includeArchived: true }))).find(
+    (document) => document.id === dashboard.id,
+  );
+  assert.equal(archivedSummary?.archivedAt, archived.archivedAt);
+  assert.equal(archivedSummary?.revision, 3);
+  assert.equal((await Effect.runPromise(service.readArchived(dashboard.id))).revision, 3);
+  const readOnly: DashboardActor = {
+    administrator: false,
+    canReadAgent: (id) => id === "fitness",
+    canWriteAgent: () => false,
+  };
+  const hidden: DashboardActor = { administrator: false, canReadAgent: () => false, canWriteAgent: () => false };
+  assert.equal((await Effect.runPromise(service.readArchived(dashboard.id, readOnly))).id, dashboard.id);
+  const viewOnlyRestore = await Effect.runPromise(
+    Effect.result(service.restore({ id: dashboard.id, revision: 3 }, readOnly)),
+  );
+  assert.equal(Result.isFailure(viewOnlyRestore) && viewOnlyRestore.failure.code, "forbidden");
+  const hiddenRestore = await Effect.runPromise(
+    Effect.result(service.restore({ id: dashboard.id, revision: 3 }, hidden)),
+  );
+  assert.equal(Result.isFailure(hiddenRestore) && hiddenRestore.failure.code, "notFound");
+  assert.equal((await Effect.runPromise(service.list({ includeArchived: true }, hidden))).length, 0);
+  const staleRestore = await Effect.runPromise(Effect.result(service.restore({ id: dashboard.id, revision: 2 })));
+  assert.equal(Result.isFailure(staleRestore) && staleRestore.failure.code, "conflict");
+  await Effect.runPromise(service.setInstalled(false));
+  assert.equal(
+    Result.isFailure(await Effect.runPromise(Effect.result(service.restore({ id: dashboard.id, revision: 3 })))),
+    true,
+  );
+  await Effect.runPromise(service.setInstalled(true));
+  database.close();
+  database = new OpenBotDatabase(root);
+  await runCauseEffect(database.initialize());
+  service = new DashboardService(options());
+  assert.equal((await Effect.runPromise(service.readArchived(dashboard.id))).revision, 3);
+  const archivedToolList = await Effect.runPromise(
+    handleDashboardTool("list_dashboards", { includeArchived: true }, "fitness", service),
+  );
+  assert.equal(archivedToolList?.success, true);
+  assert.equal(JSON.stringify(archivedToolList).includes(dashboard.id), true);
+  assert.equal(
+    (
+      await Effect.runPromise(
+        handleDashboardTool("read_dashboard", { id: dashboard.id, includeArchived: true }, "fitness", service),
+      )
+    )?.success,
+    true,
+  );
+  assert.equal(
+    (
+      await Effect.runPromise(
+        handleDashboardTool("restore_dashboard", { id: dashboard.id, revision: 3 }, "chief", service),
+      )
+    )?.success,
+    false,
+  );
+  assert.equal(
+    (
+      await Effect.runPromise(
+        handleDashboardTool("restore_dashboard", { id: dashboard.id, revision: 3 }, "fitness", service),
+      )
+    )?.success,
+    true,
+  );
+  const restored = await Effect.runPromise(service.read(dashboard.id));
+  assert.equal(restored.id, dashboard.id);
+  assert.equal(restored.createdAt, dashboard.createdAt);
+  assert.equal(restored.archivedAt, null);
+  assert.equal(restored.revision, 4);
+  assert.equal(
+    (await Effect.runPromise(service.list())).some((document) => document.id === dashboard.id),
+    true,
+  );
+  assert.equal(
+    database.connection
+      .prepare("SELECT json_extract(document_json, '$.blocks') AS blocks FROM agent_dashboards WHERE dashboard_id=?")
+      .get(dashboard.id)?.blocks,
+    originalBlocks,
+  );
+  assert.equal(
+    Result.isFailure(await Effect.runPromise(Effect.result(service.restore({ id: dashboard.id, revision: 4 })))),
+    true,
+  );
+  cases.push(
+    "archive and restore survive restart, preserve source blocks, and enforce revision, installation and agent access",
   );
   assert.equal(
     changes.some((event) => event.kind === "dashboard"),
     true,
   );
-  cases.push("restart, uninstall, reinstall and archive retain saved data");
+  cases.push("restart, uninstall and reinstall retain saved data");
   await mkdir(".openbot-build", { recursive: true });
   await writeFile(".openbot-build/dashboards-e2e.json", JSON.stringify({ status: "pass", cases }, null, 2));
 } finally {

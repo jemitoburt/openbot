@@ -1,0 +1,9 @@
+{
+  "capabilities": ["dashboards-v1", "dashboards-archive-v1"],
+  "requests": [
+    { "path": "/v1/dashboards/archive/list", "body": { "agentId": "fitness", "includeArchived": true } },
+    { "path": "/v1/dashboards/archive/list", "body": {} },
+    { "path": "/v1/dashboards/archive/read", "body": { "id": "dashboard-1" } },
+    { "path": "/v1/dashboards/restore", "body": { "id": "dashboard-1", "revision": 2 } }
+  ]
+}

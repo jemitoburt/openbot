@@ -775,10 +775,12 @@ export const IPC_ENDPOINTS = {
   dashboards: {
     list: scopedRequest<DashboardListInput, DashboardSummary[]>()("dashboards:list"),
     read: scopedRequest<string, DashboardDocument>()("dashboards:read"),
+    readArchived: scopedRequest<string, DashboardDocument>()("dashboards:read-archived"),
     create: scopedRequest<CreateDashboardInput, DashboardDocument>()("dashboards:create"),
     update: scopedRequest<UpdateDashboardInput, DashboardDocument>()("dashboards:update"),
     editWidget: scopedRequest<EditDashboardWidgetInput, DashboardDocument>()("dashboards:edit-widget"),
     archive: scopedRequest<DashboardRevisionInput, DashboardDocument>()("dashboards:archive"),
+    restore: scopedRequest<DashboardRevisionInput, DashboardDocument>()("dashboards:restore"),
     toggleItem: scopedRequest<ToggleDashboardItemInput, DashboardDocument>()("dashboards:toggle-item"),
     report: scopedRequest<DashboardReportInput, DashboardReport>()("dashboards:report"),
     changed: event<{ serverId: string; change: DashboardChange }>()("dashboards:changed"),

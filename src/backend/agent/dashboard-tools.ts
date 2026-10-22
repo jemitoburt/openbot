@@ -13,7 +13,8 @@ const blocks = z
   .max(DASHBOARD_LIMITS.blocks)
   .refine(isDashboardBlocks, "Invalid dashboard blocks.");
 const create = z.strictObject({ title: z.string().trim().min(1).max(DASHBOARD_LIMITS.title), blocks });
-const read = z.strictObject({ id });
+const list = z.strictObject({ includeArchived: z.boolean().optional() });
+const read = z.strictObject({ id, includeArchived: z.boolean().optional() });
 const update = z.strictObject({ id, revision, ...create.shape });
 const archive = z.strictObject({ id, revision });
 const BLOCK_GUIDANCE = [
@@ -29,12 +30,14 @@ const BLOCK_GUIDANCE = [
 export const DASHBOARD_TOOL_DEFINITIONS = [
   {
     name: "list_dashboards",
-    description: "List your saved dashboards. The Dashboards plugin must be installed on this host.",
-    shape: {},
+    description:
+      "List your saved dashboards. Set includeArchived to true to find dashboards you can restore. The Dashboards plugin must be installed on this host.",
+    shape: list.shape,
   },
   {
     name: "read_dashboard",
-    description: "Read your dashboard and its current revision before an update.",
+    description:
+      "Read your dashboard and its current revision before an update. Set includeArchived to true to read a saved archived dashboard before restoration.",
     shape: read.shape,
   },
   {
@@ -49,7 +52,14 @@ export const DASHBOARD_TOOL_DEFINITIONS = [
   },
   {
     name: "archive_dashboard",
-    description: "Archive your dashboard using its current revision. Saved data is retained.",
+    description:
+      "Archive your dashboard using its current revision. Saved data is retained. Use restore_dashboard to bring it back.",
+    shape: archive.shape,
+  },
+  {
+    name: "restore_dashboard",
+    description:
+      "Restore your archived dashboard with its current revision. Find it with list_dashboards(includeArchived:true), then read_dashboard(includeArchived:true). Keeps all saved blocks, IDs and checklist choices.",
     shape: archive.shape,
   },
 ];
@@ -68,10 +78,19 @@ export const handleDashboardTool = Effect.fn("DashboardTools.handle")(function* 
   };
   const operation = Effect.gen(function* () {
     switch (tool) {
-      case "list_dashboards":
-        return yield* service.list({ agentId }, actor);
-      case "read_dashboard":
-        return yield* service.read((yield* toolStep(() => read.parse(args))).id, actor);
+      case "list_dashboards": {
+        const input = yield* toolStep(() => list.parse(args ?? {}));
+        return yield* service.list(
+          input.includeArchived === undefined ? { agentId } : { agentId, includeArchived: input.includeArchived },
+          actor,
+        );
+      }
+      case "read_dashboard": {
+        const input = yield* toolStep(() => read.parse(args));
+        return yield* input.includeArchived ? service.readArchived(input.id, actor) : service.read(input.id, actor);
+      }
+      case "restore_dashboard":
+        return yield* service.restore(yield* toolStep(() => archive.parse(args)), actor);
       case "archive_dashboard":
         return yield* service.archive(yield* toolStep(() => archive.parse(args)), actor);
       case "create_dashboard": {

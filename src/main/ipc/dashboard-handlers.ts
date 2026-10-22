@@ -1,4 +1,8 @@
 import type { TeamCurrentCapability } from "@openbot/contracts/team-protocol/current";
+import {
+  DASHBOARD_ARCHIVE_ROUTES,
+  DASHBOARDS_ARCHIVE_CAPABILITY,
+} from "@openbot/contracts/team-protocol/dashboards-archive-v1";
 import { DASHBOARD_ROUTES, DASHBOARDS_CAPABILITY } from "@openbot/contracts/team-protocol/dashboards-v1";
 import { sourceText } from "@openbot/i18n/source";
 import type { Effect } from "effect";
@@ -39,7 +43,17 @@ interface DashboardRemoteServers {
 export interface DashboardIpcDependencies {
   dashboards: Pick<
     DashboardService,
-    "pluginState" | "setInstalled" | "list" | "read" | "create" | "update" | "archive" | "toggleItem" | "editWidget"
+    | "pluginState"
+    | "setInstalled"
+    | "list"
+    | "read"
+    | "readArchived"
+    | "create"
+    | "update"
+    | "archive"
+    | "restore"
+    | "toggleItem"
+    | "editWidget"
   >;
   dashboardReports: Pick<DashboardReportReader, "read">;
   remoteServers: DashboardRemoteServers;
@@ -49,8 +63,14 @@ export function dashboardIpcHandlers({
   dashboardReports,
   remoteServers,
 }: DashboardIpcDependencies): Pick<IpcGroupHandlers, "dashboards"> {
-  function remote<A>(serverId: string, path: string, decode: ResponseDecoder<A>, body: unknown): Promise<A> {
-    if (!remoteServers.supportsCapability(serverId, DASHBOARDS_CAPABILITY))
+  function remote<A>(
+    serverId: string,
+    path: string,
+    decode: ResponseDecoder<A>,
+    body: unknown,
+    capability: TeamCurrentCapability = DASHBOARDS_CAPABILITY,
+  ): Promise<A> {
+    if (!remoteServers.supportsCapability(serverId, capability))
       throw new Error(sourceText("error.dashboard.unsupported"));
     return runCauseEffect(remoteServers.request(serverId, path, decode, { method: "POST", body }));
   }
@@ -58,11 +78,36 @@ export function dashboardIpcHandlers({
     dashboards: {
       list: scopedHandler(parseDashboardList, {
         local: (input) => runDashboardEffect(dashboards.list(input)),
-        remote: (input, serverId) => remote(serverId, DASHBOARD_ROUTES.list, decodeDashboardSummariesFromHost, input),
+        remote: (input, serverId) =>
+          input.includeArchived
+            ? remote(
+                serverId,
+                DASHBOARD_ARCHIVE_ROUTES.list,
+                decodeDashboardSummariesFromHost,
+                input,
+                DASHBOARDS_ARCHIVE_CAPABILITY,
+              )
+            : remote(
+                serverId,
+                DASHBOARD_ROUTES.list,
+                decodeDashboardSummariesFromHost,
+                input.agentId === undefined ? {} : { agentId: input.agentId },
+              ),
       }),
       read: scopedHandler(stringPayload("dashboardId"), {
         local: (id) => runDashboardEffect(dashboards.read(id)),
         remote: (id, serverId) => remote(serverId, DASHBOARD_ROUTES.read, decodeDashboardFromHost, { id }),
+      }),
+      readArchived: scopedHandler(stringPayload("dashboardId"), {
+        local: (id) => runDashboardEffect(dashboards.readArchived(id)),
+        remote: (id, serverId) =>
+          remote(
+            serverId,
+            DASHBOARD_ARCHIVE_ROUTES.read,
+            decodeDashboardFromHost,
+            { id },
+            DASHBOARDS_ARCHIVE_CAPABILITY,
+          ),
       }),
       create: scopedHandler(parseDashboardCreate, {
         local: (input) => runDashboardEffect(dashboards.create(input)),
@@ -79,6 +124,17 @@ export function dashboardIpcHandlers({
       archive: scopedHandler(parseDashboardRevision, {
         local: (input) => runDashboardEffect(dashboards.archive(input)),
         remote: (input, serverId) => remote(serverId, DASHBOARD_ROUTES.archive, decodeDashboardFromHost, input),
+      }),
+      restore: scopedHandler(parseDashboardRevision, {
+        local: (input) => runDashboardEffect(dashboards.restore(input)),
+        remote: (input, serverId) =>
+          remote(
+            serverId,
+            DASHBOARD_ARCHIVE_ROUTES.restore,
+            decodeDashboardFromHost,
+            input,
+            DASHBOARDS_ARCHIVE_CAPABILITY,
+          ),
       }),
       toggleItem: scopedHandler(parseDashboardToggle, {
         local: (input) => runDashboardEffect(dashboards.toggleItem(input)),

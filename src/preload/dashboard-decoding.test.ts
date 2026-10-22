@@ -41,6 +41,13 @@ const document: DashboardDocument = {
 };
 
 describe("dashboard preload boundary", () => {
+  it("accepts archived documents and restored results without removing their content", () => {
+    const archived = { ...document, revision: 2, archivedAt: "2026-10-22T07:00:00.000Z" };
+    const restored = { ...document, revision: 3, archivedAt: null };
+    expect(decodeDashboardFromMain(archived)).toEqual(archived);
+    expect(decodeDashboardSummariesFromMain([archived])[0]?.archivedAt).toBe(archived.archivedAt);
+    expect(decodeDashboardFromMain(restored)).toEqual(restored);
+  });
   it("accepts structured blocks and an unavailable older host", () => {
     expect(decodeDashboardFromMain(document)).toEqual(document);
     const { blocks, ...summary } = document;
