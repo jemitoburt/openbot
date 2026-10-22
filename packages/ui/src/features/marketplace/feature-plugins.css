@@ -1,0 +1,376 @@
+/* Desktop Plugins frames D01 and D02. The catalog contains only available plugins. */
+.skills-marketplace-backdrop {
+  background: var(--openbot-marketplace-overlay);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.skills-marketplace:not(.skills-marketplace-page):has(
+  .ui-sliding-tabs-content[data-selected] .feature-plugins-browse,
+  .feature-plugin-detail
+) {
+  height: auto;
+  max-height: calc(100dvh - 32px);
+  box-shadow: 0 12px 32px var(--openbot-shadow-dialog);
+}
+
+.skills-marketplace:has(.ui-sliding-tabs-content[data-selected] .feature-plugins-browse) {
+  --marketplace-inset: 20px;
+}
+
+.skills-marketplace:has(.ui-sliding-tabs-content[data-selected] .feature-plugins-browse, .feature-plugin-detail)
+  .skills-marketplace-topbar {
+  min-height: 52px;
+}
+
+.skills-marketplace:has(.ui-sliding-tabs-content[data-selected] .feature-plugins-browse) .marketplace-frame {
+  padding-block: 20px;
+}
+
+.skills-marketplace:has(.feature-plugin-detail) .marketplace-frame {
+  padding-block: var(--openbot-space-6);
+}
+
+.skills-marketplace:has(.ui-sliding-tabs-content[data-selected] .feature-plugins-browse, .feature-plugin-detail)
+  .skills-marketplace-body {
+  min-height: 0;
+}
+
+/* Force-mounted tab panels keep their state. Only the active Plugins panel sets this compact dialog's height. */
+.skills-marketplace:has(.ui-sliding-tabs-content[data-selected] .feature-plugins-browse)
+  .marketplace-tab-slot
+  > .ui-sliding-tabs-content:not([data-selected]) {
+  display: none;
+}
+
+.feature-plugins-browse,
+.feature-plugin-group {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.feature-plugins-browse p,
+.feature-plugin-detail p,
+.feature-plugin-card h3 {
+  margin: 0;
+}
+
+.feature-plugins-intro {
+  line-height: 1.5;
+}
+
+.feature-plugin-section-label,
+.feature-plugin-meta {
+  color: var(--openbot-text-muted);
+  font-size: var(--openbot-marketplace-plugin-meta-size);
+  font-weight: var(--openbot-weight-semibold);
+  letter-spacing: 0.066em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.feature-plugin-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--openbot-space-3);
+}
+
+.feature-plugin-card {
+  grid-template-rows: auto 1fr auto;
+  gap: var(--openbot-space-3);
+  align-content: start;
+}
+
+.feature-plugin-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--openbot-space-3);
+  min-width: 0;
+}
+
+.feature-plugin-card-name {
+  display: grid;
+  flex: 1;
+  gap: var(--openbot-space-0-5);
+  min-width: 0;
+}
+
+.feature-plugin-card-name h3 {
+  overflow-wrap: anywhere;
+  font-size: var(--openbot-text-lg);
+  font-weight: var(--openbot-weight-semibold);
+  line-height: 1.3;
+}
+
+.feature-plugin-card-name p {
+  font-size: var(--openbot-text-sm);
+}
+
+.feature-plugin-mark {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--openbot-marketplace-plugin-icon-radius);
+  background: var(--openbot-dashboard-tone-lavender);
+  color: var(--openbot-text-on-light);
+}
+
+.feature-plugin-mark > svg {
+  width: 20px;
+  height: 20px;
+}
+
+.feature-plugin-mark[data-size="large"] {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--openbot-marketplace-plugin-hero-icon-radius);
+}
+
+.feature-plugin-mark[data-size="large"] > svg {
+  width: 34px;
+  height: 34px;
+}
+
+.feature-plugin-card-description {
+  color: var(--openbot-text-secondary);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.feature-plugin-card .marketplace-card-action {
+  flex: 0 0 auto;
+  max-width: none;
+}
+
+.feature-plugin-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--openbot-space-2);
+}
+
+.feature-plugin-action,
+.feature-plugin-installed {
+  gap: var(--openbot-space-1-5);
+  height: 32px;
+  padding-inline: var(--openbot-space-3);
+  border-radius: var(--openbot-radius-pill);
+  white-space: nowrap;
+}
+
+.feature-plugin-installed {
+  font-size: var(--openbot-text-md);
+  font-weight: var(--openbot-weight-semibold);
+}
+
+.feature-plugin-installed > svg {
+  width: 13px;
+  height: 13px;
+}
+
+.feature-plugin-detail {
+  gap: var(--openbot-space-6);
+}
+
+.feature-plugin-back.ui-button {
+  justify-self: start;
+  gap: var(--openbot-space-1-5);
+  padding-inline: 0 var(--openbot-space-2);
+  color: var(--openbot-text-muted);
+}
+
+.feature-plugin-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.feature-plugin-hero-copy {
+  display: grid;
+  flex: 1;
+  gap: var(--openbot-space-1-5);
+  min-width: 180px;
+}
+
+.feature-plugin-title {
+  margin: 0;
+  font-size: var(--openbot-marketplace-plugin-title-size);
+  font-weight: var(--openbot-weight-medium);
+  letter-spacing: -0.05em;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.feature-plugin-hero .feature-plugin-action,
+.feature-plugin-hero .feature-plugin-installed {
+  height: 40px;
+  padding-inline: var(--openbot-space-4);
+}
+
+.feature-plugin-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  align-items: start;
+  gap: 28px;
+  min-width: 0;
+}
+
+.feature-plugin-copy {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.feature-plugin-description {
+  font-size: var(--openbot-text-lg);
+  line-height: 1.55;
+}
+
+.feature-plugin-points {
+  display: grid;
+  gap: var(--openbot-space-2);
+  margin: var(--openbot-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feature-plugin-points > li {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.feature-plugin-points > li > svg {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  margin-top: var(--openbot-space-0-5);
+  color: var(--openbot-success);
+}
+
+.feature-plugin-points > li > span {
+  line-height: 1.45;
+}
+
+.feature-plugin-uninstall.ui-button {
+  justify-self: start;
+  padding-inline: 0 var(--openbot-space-2);
+  color: var(--openbot-text-muted);
+}
+
+.feature-plugin-preview {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 10px;
+  min-width: 0;
+  height: 360px;
+  margin: 0;
+  padding: var(--openbot-space-4);
+  border: 1px solid var(--openbot-border-grouped);
+  border-radius: var(--openbot-dashboard-widget-radius);
+  background: var(--openbot-bg-sheet);
+}
+
+.feature-plugin-preview-layout {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: 110px 150px;
+  gap: 10px;
+}
+
+.feature-plugin-preview-layout > div {
+  border-radius: var(--openbot-marketplace-plugin-icon-radius);
+  background: var(--openbot-bg-grouped);
+}
+
+.feature-plugin-preview-layout > .feature-plugin-preview-blue {
+  background: var(--openbot-dashboard-tone-sky);
+}
+
+.feature-plugin-preview-layout > .feature-plugin-preview-amber {
+  background: var(--openbot-dashboard-tone-mustard);
+}
+
+.feature-plugin-preview-layout > .feature-plugin-preview-purple {
+  background: var(--openbot-dashboard-tone-lavender);
+}
+
+.feature-plugin-preview-wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 900px) {
+  .feature-plugin-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .feature-plugin-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 0.85fr);
+    gap: var(--openbot-space-6);
+  }
+}
+
+@media (max-width: 720px) {
+  .feature-plugin-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .feature-plugin-grid,
+  .feature-plugin-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .feature-plugin-hero .feature-plugin-actions {
+    width: 100%;
+  }
+
+  .feature-plugin-preview {
+    width: 100%;
+    max-width: 420px;
+  }
+}
+
+.skills-marketplace .ui-sliding-tabs-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--openbot-space-1-5);
+}
+
+.skills-marketplace .ui-sliding-tabs-trigger > svg {
+  width: 13px;
+  height: 13px;
+}
+
+.skills-marketplace .ui-sliding-tabs-trigger > .z-badge-variant-new {
+  height: auto;
+  padding: var(--openbot-space-0-5) var(--openbot-space-1);
+  border-radius: var(--openbot-radius-xs);
+  font-size: var(--openbot-marketplace-plugin-meta-size);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.skills-marketplace:has(.ui-sliding-tabs-content[data-selected] .feature-plugins-browse) .marketplace-search {
+  border-radius: var(--openbot-radius-pill);
+}
+
+@media (max-width: 720px) {
+  .skills-marketplace:has(.ui-sliding-tabs-content[data-selected] .feature-plugins-browse) .marketplace-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .skills-marketplace:has(.ui-sliding-tabs-content[data-selected] .feature-plugins-browse) .marketplace-search {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+}

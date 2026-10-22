@@ -134,6 +134,7 @@ import { createMockBilling, previewBillingServers } from "./mock-billing";
 import { createMockBitwardenConnector } from "./mock-bitwarden-connector";
 import { createMockBrowser, type MockBrowserOptions } from "./mock-browser";
 import { createMockChannels } from "./mock-channels";
+import { createMockDashboards } from "./mock-dashboards";
 import { createMockEvents } from "./mock-events";
 import { createMockGitHubConnector } from "./mock-github-connector";
 import { createMockHostTimezone } from "./mock-host-timezone";
@@ -757,6 +758,10 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   const mockProviderRuntimes = createMockProviderRuntimes(options, runtime);
   const mockVoice = createMockVoice(options, runtime);
   const mockAuth = createMockAuth(options, runtime);
+  const mockDashboards = createMockDashboards(
+    runtime,
+    (agentId, routineId) => routines.get(agentId)?.find((routine) => routine.id === routineId)?.name,
+  );
   const mockSkills = createMockSkills(options, (agentId) => emitAgentEvent({ type: "skills-changed", agentId }));
   const { installedSkills, readInstalledSkills } = mockSkills;
   const mockBrowser = createMockBrowser(options, runtime, emitAgentEvent);
@@ -2360,7 +2365,9 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       exportDiagnostics: async () => ({ saved: true }),
     },
     servers: mockTeam.servers,
+    dashboards: mockDashboards.dashboards,
     plugins: {
+      ...mockDashboards.plugins,
       // The preview is never opened by a link, so there is nothing pending and nothing to push.
       takePendingListing: async () => null,
       onOpenListing: (listener) => {

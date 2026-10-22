@@ -205,6 +205,8 @@
     "./features/settings/SlackIntegrationPanel": "./src/features/settings/SlackIntegrationPanel.tsx",
     "./features/settings/TelegramIntegrationPanel": "./src/features/settings/TelegramIntegrationPanel.tsx",
     "./features/settings/LanguageSelect": "./src/features/settings/LanguageSelect.tsx",
+    "./features/dashboards/DashboardPage": "./src/features/dashboards/DashboardPage.tsx",
+    "./features/dashboards/dashboards.css": "./src/features/dashboards/dashboards.css",
     "./features/marketplace/Marketplace": "./src/features/marketplace/Marketplace.tsx",
     "./features/marketplace/PluginIcon": "./src/features/marketplace/PluginIcon.tsx",
     "./features/marketplace/marketplace-listing": "./src/features/marketplace/marketplace-listing.ts",

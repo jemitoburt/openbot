@@ -25,6 +25,7 @@ import { useServers } from "../servers/servers-context";
 import { useSettings } from "../settings/settings-context";
 import { usePresence } from "../team/team-context";
 import { SidebarUpdateIsland } from "../updates/SidebarUpdateIsland";
+import { useWindowPage } from "../window/window-page-context";
 import { createCommunityCardVisibility } from "./community-card";
 import { useSidebar } from "./sidebar-context";
 
@@ -45,6 +46,7 @@ const MOBILE_APP_DISMISSED_STORAGE_KEY = "openbot:mobile-app-card-dismissed";
 export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
   const { t } = useText();
   const layout = useLayout();
+  const windowPage = useWindowPage();
   const platform = usePlatform();
   const channels = useChannels();
   const { activeServer, activeServerSupportsCapability } = useServers();
@@ -222,7 +224,7 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
       userHiddenAgents={userHiddenAgents()}
       onHideAgent={hideAllowed() ? (agentId) => void setAgentHiddenByUser(agentId, true) : undefined}
       onRestoreAgent={hideAllowed() ? (agentId) => void setAgentHiddenByUser(agentId, false) : undefined}
-      compact={layout.leftPanelCompact()}
+      compact={windowPage.page() === "plugin" ? false : layout.leftPanelCompact()}
       onExpand={layout.expandSidebar}
       onOpenSearch={() => setGlobalSearchVisibility(true)}
       footer={

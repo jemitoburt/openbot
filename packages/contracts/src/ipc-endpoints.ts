@@ -10,6 +10,20 @@ import type {
   ResetAgentSessionSettingInput,
   SetAgentSessionSettingInput,
 } from "./ipc-agent-session-settings";
+import type {
+  CreateDashboardInput,
+  DashboardChange,
+  DashboardDocument,
+  DashboardListInput,
+  DashboardReport,
+  DashboardReportInput,
+  DashboardRevisionInput,
+  DashboardSummary,
+  EditDashboardWidgetInput,
+  PluginState,
+  ToggleDashboardItemInput,
+  UpdateDashboardInput,
+} from "./ipc-dashboards";
 // The one channel list. Each endpoint holds its wire value, the group it belongs to, and whether it
 // is a request the renderer invokes or an event the main process sends. That is what lets a
 // registrar bind its handlers as an object keyed by endpoint, so a channel with no handler, and a
@@ -752,6 +766,17 @@ export const IPC_ENDPOINTS = {
     uninstall: request<UninstallSkillInput, void>()("skills:uninstall"),
     setEnabled: request<SetEnabledSkillInput, InstalledSkill>()("skills:set-enabled"),
   },
+  dashboards: {
+    list: scopedRequest<DashboardListInput, DashboardSummary[]>()("dashboards:list"),
+    read: scopedRequest<string, DashboardDocument>()("dashboards:read"),
+    create: scopedRequest<CreateDashboardInput, DashboardDocument>()("dashboards:create"),
+    update: scopedRequest<UpdateDashboardInput, DashboardDocument>()("dashboards:update"),
+    editWidget: scopedRequest<EditDashboardWidgetInput, DashboardDocument>()("dashboards:edit-widget"),
+    archive: scopedRequest<DashboardRevisionInput, DashboardDocument>()("dashboards:archive"),
+    toggleItem: scopedRequest<ToggleDashboardItemInput, DashboardDocument>()("dashboards:toggle-item"),
+    report: scopedRequest<DashboardReportInput, DashboardReport>()("dashboards:report"),
+    changed: event<{ serverId: string; change: DashboardChange }>()("dashboards:changed"),
+  },
   // No event channel: the renderer is the only writer, and the models a saved endpoint adds arrive
   // through the ready `status` event the provider restart already emits.
   customProviders: {
@@ -1434,10 +1459,11 @@ export const IPC_ENDPOINTS = {
     apply: scopedRequest<ApplyInstanceTransferInput, InstanceTransferResult, "required">()("instance-transfer:apply"),
     discard: scopedRequest<string, void, "required">()("instance-transfer:discard"),
   },
-  // The plugin deep link, its own group because its registrar holds the pending link rather than a
-  // service. `takePendingListing` is what a window that finished loading after the link arrived
-  // asks for; `openListing` is the same slug pushed to a window that was already there.
+  // Built-in host plugins and the existing integration listing deep links. Opening a listing never installs it.
   plugins: {
+    state: scopedQuery<PluginState | null>()("plugins:state"),
+    setInstalled: scopedRequest<boolean, PluginState>()("plugins:set-installed"),
+    changed: event<{ serverId: string; change: DashboardChange }>()("plugins:changed"),
     takePendingListing: request<undefined, string | null>()("plugins:take-pending-listing"),
     openListing: event<string>()("plugins:open-listing"),
   },
@@ -1511,6 +1537,7 @@ export const IPC_GROUP_PATHS = {
   browserDock: "browserDock",
   computerUse: "computerUse",
   skills: "skills",
+  dashboards: "dashboards",
   customProviders: "customProviders",
   providerDetection: "providerDetection",
   customAgents: "customAgents",

@@ -189,6 +189,14 @@ import {
   decodeWaits,
 } from "./conversation-decoding";
 import {
+  decodeDashboardChange,
+  decodeDashboardFromMain,
+  decodeDashboardReportFromMain,
+  decodeDashboardSummariesFromMain,
+  decodeNullablePluginState,
+  decodePluginStateFromMain,
+} from "./dashboard-decoding";
+import {
   decodeDynamicIslandAction,
   decodeDynamicIslandGeometry,
   decodeDynamicIslandPreference,
@@ -692,6 +700,17 @@ const openbotApi: OpenBotDesktopApi = {
     uninstall: decodeVoid,
     setEnabled: decodeInstalledSkill,
   }),
+  dashboards: bridgeGroup(IPC_ENDPOINTS.dashboards, {
+    list: decodeDashboardSummariesFromMain,
+    read: decodeDashboardFromMain,
+    create: decodeDashboardFromMain,
+    update: decodeDashboardFromMain,
+    editWidget: decodeDashboardFromMain,
+    archive: decodeDashboardFromMain,
+    toggleItem: decodeDashboardFromMain,
+    report: decodeDashboardReportFromMain,
+    changed: decodeDashboardChange,
+  }),
   hostedSites: bridgeGroup(IPC_ENDPOINTS.hostedSites, {
     list: decodeHostedSiteList,
     chooseDirectory: decodeNullablePath,
@@ -1067,6 +1086,9 @@ const openbotApi: OpenBotDesktopApi = {
     onEvent: (listener) => serversGroup.onEvent((servers) => listener(rememberActiveServer(servers))),
   },
   plugins: bridgeGroup(IPC_ENDPOINTS.plugins, {
+    state: decodeNullablePluginState,
+    setInstalled: decodePluginStateFromMain,
+    changed: decodeDashboardChange,
     takePendingListing: decodePendingListing,
     openListing: dropInvalid(decodePendingListing),
   }),

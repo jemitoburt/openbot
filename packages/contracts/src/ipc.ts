@@ -38,6 +38,7 @@ export * from "./ipc-conversation-subagents";
 export * from "./ipc-conversations";
 export * from "./ipc-custom-agents";
 export * from "./ipc-custom-providers";
+export * from "./ipc-dashboards";
 export * from "./ipc-desktop-apis";
 export * from "./ipc-dynamic-island";
 export * from "./ipc-endpoints";

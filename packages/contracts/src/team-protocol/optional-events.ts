@@ -7,6 +7,7 @@ import { type BrowserUserControlEvent, browserUserControlEvent } from "./browser
 // Events that optional capabilities add outside the frozen base event vocabularies. The base event
 // adapters reject them, so each transport asks here first and sends or decodes them as they are.
 import { type ChannelEvent, channelEvent } from "./channels-v1";
+import { type DashboardsEvent, dashboardsEvent } from "./dashboards-v1";
 import { type HostRestartEvent, hostRestartEvent } from "./host-update-v1";
 import { type QuietTurnCompletedEvent, quietTurnEvent } from "./quiet-turn-v1";
 import { type RoutineFlowsEvent, routineFlowsEvent } from "./routine-flows-v1";
@@ -21,6 +22,7 @@ export type OptionalTeamEvent =
   | AgentTasksEvent
   | ChannelEvent
   | HostRestartEvent
+  | DashboardsEvent
   | SkillsEvent
   | QuietTurnCompletedEvent
   | RoutineFlowsEvent;
@@ -36,6 +38,7 @@ export function optionalTeamEvent(value: unknown): OptionalTeamEvent | null {
     agentTasksEvent(value) ??
     channelEvent(value) ??
     hostRestartEvent(value) ??
+    dashboardsEvent(value) ??
     skillsEvent(value) ??
     quietTurnEvent(value) ??
     routineFlowsEvent(value)

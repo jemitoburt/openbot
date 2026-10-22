@@ -22,12 +22,24 @@ const usageRows = accountUsageProviderRows({
 function RailPreview(props: { updateReady?: boolean }) {
   const { t } = useText();
   const [current, setCurrent] = createSignal<PageRailPage | null>("agents");
+  const [pluginId, setPluginId] = createSignal<string | null>(null);
   return (
     // The extra box keeps the rail out of the rule that hides it in a narrow window.
     <div class="app-window" style={{ height: "100vh" }}>
       <div style={{ display: "flex" }}>
         <PageRail
           hidden={false}
+          plugins={[
+            {
+              id: "dashboards",
+              label: t("app.dashboards.title"),
+              onOpen: () => {
+                setCurrent(null);
+                setPluginId("dashboards");
+              },
+            },
+          ]}
+          currentPluginId={current() === null ? pluginId() : null}
           current={current()}
           usageRows={usageRows}
           onAgents={() => setCurrent("agents")}

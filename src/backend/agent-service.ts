@@ -196,6 +196,7 @@ import { ChannelRoutineScheduler } from "./channel-routine-scheduler";
 import { ChannelService } from "./channel-service";
 import type { BundledProviderExecutables } from "./cli";
 import type { ConversationMarkerExclusions } from "./conversation-read-store";
+import type { DashboardService } from "./dashboards/dashboard-service";
 import type { ProviderSession } from "./database/provider-sessions";
 import { reportOriginalFailure } from "./effect-boundary";
 import type { HostMemory } from "./host-memory";
@@ -242,6 +243,7 @@ interface AgentServiceEvents {
 }
 
 export interface AgentServiceOptions {
+  dashboards?: (() => DashboardService | null) | undefined;
   store: AgentStore;
   mailbox: MailboxStore;
   browser: AgentBrowserHost;
@@ -1215,6 +1217,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       tasks: this.#tasks,
       drain: this.#drain,
       tables: this.#tables,
+      dashboards: options.dashboards,
       sidebarLayout: this.#sidebarLayout,
       ...(this.#localSkillTools === undefined ? {} : { localSkillTools: this.#localSkillTools }),
       ...(this.#routineFlowTools === undefined ? {} : { routineFlowTools: this.#routineFlowTools }),

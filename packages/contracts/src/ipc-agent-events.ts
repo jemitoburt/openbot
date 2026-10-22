@@ -1,3 +1,4 @@
+import { type DashboardChange, isDashboardChange } from "./ipc-dashboards";
 // `isAgentEvent` is the one guard that reaches across every domain in this package: an agent event
 // is a union over the payloads the other modules own. It imports their guards rather than restating
 // their rules, which is what lets each guard live beside the type it validates.
@@ -36,6 +37,7 @@ function isAgentTurnOrigin(value: unknown): value is AgentTurnOrigin {
 }
 
 export type AgentEvent =
+  | { type: "dashboards-changed"; change: DashboardChange }
   | { type: "channels-changed"; channelId: string; revision: number }
   | { type: "status"; status: AgentStatus }
   | { type: "usage-changed"; usage: AccountUsage }
@@ -159,6 +161,8 @@ export function isAgentEvent(value: unknown): value is AgentEvent {
       return (
         Array.isArray(value.agents) && value.agents.length <= INPUT_LIMITS.agents && value.agents.every(isAgentSummary)
       );
+    case "dashboards-changed":
+      return isDashboardChange(value.change);
     case "memories-changed":
       return isString(value.agentId) && value.agentId.length > 0 && value.agentId.length <= INPUT_LIMITS.identifier;
     case "routines-changed":

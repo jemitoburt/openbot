@@ -7,7 +7,15 @@ import { useSettings } from "../settings/settings-context";
 import { useUsage } from "../usage/usage-context";
 
 /** The pages of the window rail. Each one fills the card below the top row. */
-export type WindowPage = "agents" | "tasks" | "schedule" | "usage" | "marketplace" | "settings" | "server-settings";
+export type WindowPage =
+  | "agents"
+  | "tasks"
+  | "schedule"
+  | "usage"
+  | "marketplace"
+  | "settings"
+  | "server-settings"
+  | "plugin";
 
 /**
  * How a page sits in the window. A settings page starts below the top row. The title of a tasks,
@@ -43,16 +51,19 @@ const context = createSimpleContext({
     /** The elements of the settings page that the settings panel shows in. The page sets them. */
     const [settingsMounts, setSettingsMounts] = createSignal<{ nav: HTMLElement; content: HTMLElement } | undefined>();
 
+    const [pluginId, setPluginId] = createSignal<string | null>(null);
     const page = createMemo<WindowPage>(() => {
       if (serverSettings.serverSettingsOpen()) return "server-settings";
       if (settings.appSettingsOpen()) return "settings";
       if (settings.skillsMarketplaceOpen()) return "marketplace";
+      if (pluginId()) return "plugin";
       return usage.state.serverId ? usage.state.view : "agents";
     });
 
     // Opening the user settings closes the server settings, the Marketplace and the host pane.
     createEffect(settings.appSettingsOpenRequest, (request, previous) => {
       if (previous === undefined || request === previous) return;
+      setPluginId(null);
       usage.dismissUsage();
       if (untrack(settings.skillsMarketplaceOpen)) settings.setSkillsMarketplaceOpen(false);
       if (untrack(serverSettings.serverSettingsOpen)) serverSettings.setServerSettingsOpen(false);
@@ -61,6 +72,7 @@ const context = createSimpleContext({
     // Opening the server settings closes the user settings, the Marketplace and the host pane.
     createEffect(serverSettings.serverSettingsOpenRequest, (request, previous) => {
       if (previous === undefined || request === previous) return;
+      setPluginId(null);
       usage.dismissUsage();
       if (untrack(settings.skillsMarketplaceOpen)) settings.setSkillsMarketplaceOpen(false);
       if (untrack(settings.appSettingsOpen)) settings.setAppSettingsOpen(false);
@@ -71,6 +83,7 @@ const context = createSimpleContext({
       () => usage.state.serverId,
       (serverId) => {
         if (!serverId) return;
+        setPluginId(null);
         if (untrack(settings.appSettingsOpen)) settings.setAppSettingsOpen(false);
         if (untrack(serverSettings.serverSettingsOpen)) serverSettings.setServerSettingsOpen(false);
         if (untrack(settings.skillsMarketplaceOpen)) settings.setSkillsMarketplaceOpen(false);
@@ -80,6 +93,7 @@ const context = createSimpleContext({
     // Opening the Marketplace closes the settings pages and the host pane.
     createEffect(settings.skillsMarketplaceOpen, (open) => {
       if (!open) return;
+      setPluginId(null);
       usage.dismissUsage();
       if (untrack(settings.appSettingsOpen)) settings.setAppSettingsOpen(false);
       if (untrack(serverSettings.serverSettingsOpen)) serverSettings.setServerSettingsOpen(false);
@@ -88,6 +102,7 @@ const context = createSimpleContext({
     // The server settings page follows the server that the user selects.
     createEffect(activeServerId, (serverId, previous) => {
       if (previous === undefined || serverId === previous || !serverId) return;
+      setPluginId(null);
       // An effect calls this, and the opener reads the state of the server settings.
       if (untrack(serverSettings.serverSettingsOpen)) untrack(() => serverSettings.openServerSettings(serverId, null));
     });
@@ -101,12 +116,21 @@ const context = createSimpleContext({
 
     return {
       page,
+      pluginId,
+      openPlugin(id: string) {
+        settings.setAppSettingsOpen(false);
+        serverSettings.setServerSettingsOpen(false);
+        settings.setSkillsMarketplaceOpen(false);
+        usage.dismissUsage();
+        setPluginId(id);
+      },
       /** Whether a page other than the agents covers the conversation. A message there is not seen. */
       conversationCovered: () => page() !== "agents",
       setSettingsMounts,
       settingsPlacement,
       /** Shows the agents and closes the other pages. */
       showAgents() {
+        setPluginId(null);
         settings.setAppSettingsOpen(false);
         serverSettings.setServerSettingsOpen(false);
         settings.setSkillsMarketplaceOpen(false);

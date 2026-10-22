@@ -1,5 +1,6 @@
 import type { AddedAgent, McpServerConfig, ServerSummary } from "@openbot/contracts/ipc";
 import { MCP_SERVERS_CAPABILITY } from "@openbot/contracts/ipc";
+import type { MarketplaceModel } from "@openbot/ui/features/marketplace/marketplace-model";
 import type { ComponentProps } from "@solidjs/web";
 import { createMemo, Loading, omit, Show } from "solid-js";
 import type { AgentTemplateInstallCalls } from "./features/agent-templates/agent-templates-port";
@@ -77,6 +78,12 @@ export function MarketplaceOverlay(props: {
   connectors?: ConnectorRegistry | undefined;
   /** What the dialog calls. Absent: this computer's bridge. */
   calls?: MarketplaceCalls | undefined;
+  featurePlugins?:
+    | Pick<
+        MarketplaceModel,
+        "plugins" | "pluginBusy" | "canManagePlugins" | "setPluginInstalled" | "openPlugin" | "error" | "clearError"
+      >
+    | undefined;
   /** A dialog, or a page of the desktop window. */
   variant?: "dialog" | "page" | undefined;
 }) {
@@ -106,6 +113,7 @@ export function MarketplaceOverlay(props: {
         <MarketplaceModal
           open={true}
           variant={props.variant}
+          featurePlugins={props.featurePlugins}
           calls={props.calls}
           connectors={props.connectors}
           agents={manage() ? props.agents : []}

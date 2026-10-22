@@ -1294,7 +1294,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   const railPage = (): PageRailPage | null => {
     const current = page();
     if (current === "agents") return layout.sidebarView();
-    return current === "server-settings" ? null : current;
+    return current === "server-settings" || current === "plugin" ? null : current;
   };
   /** The settings page on screen, if any. */
   const settingsKind = (): SettingsKind | null =>

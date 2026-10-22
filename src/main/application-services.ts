@@ -7,6 +7,7 @@ import { toHostedSiteOperationFailed } from "../backend/agent/hosted-site-coordi
 import { AgentDatabaseSupervisor } from "../backend/agent-data/agent-database-supervisor";
 import { AgentTables } from "../backend/agent-data/agent-tables";
 import { AgentRoutineStore } from "../backend/agent-routine-store";
+import { DashboardService } from "../backend/dashboards/dashboard-service";
 import { DiscordConnectFailed, toDiscordConnectFailed } from "../backend/messaging/discord/discord-connect";
 import { SlackConnectFailed, toSlackConnectFailed } from "../backend/messaging/slack/slack-connect";
 import { routineFlowRoutines } from "../backend/routine-flows/routine-flow-routines";
@@ -19,6 +20,7 @@ import { type AgentAdminSettingsService, createAgentAdminSettings } from "./agen
 import { spawnAgentDatabaseHost } from "./agent-database-host-process";
 import { agentDisplayEnvironment, hasSeparateAgentDisplay } from "./agent-display";
 import { type AgentHostSettingsService, createAgentHostSettings } from "./agent-host-settings";
+import { DashboardReportReader } from "./dashboard-report-reader";
 import { HostReleaseService, readInstallationMode } from "./host-release-service";
 import {
   CONTAINER_UPDATE_PATHS,
@@ -445,6 +447,8 @@ export interface ApplicationServices {
   service: AgentService;
   routineFlows: RoutineFlowsHandle;
   routineResults: RoutineResultsHandle;
+  dashboards: DashboardService;
+  dashboardReports: DashboardReportReader;
   providerRuntimes: ProviderRuntimeManager;
   providerCredentials: ProviderCredentialStore;
   /** The Slack and Telegram connections of the agents on this host. */
@@ -1419,7 +1423,9 @@ export async function createApplicationServices({
   const providerTempDirectory = join(app.getPath("userData"), "provider-temp");
   performance.mark("openbot:services.computer-use");
   if (process.platform === "win32") await Effect.runPromise(sweepProviderTemp(providerTempDirectory));
+  let dashboardService: DashboardService | null = null;
   const service: AgentService = new AgentService({
+    dashboards: () => dashboardService,
     store,
     mailbox,
     browser,
@@ -1520,6 +1526,37 @@ export async function createApplicationServices({
     if (!threadId) return null;
     return latestTurnAnswer(store.database.readTurnAssistantMessages(agentId, threadId, turnId), turnId)?.text ?? null;
   };
+  const dashboards = new DashboardService({
+    database: store.database,
+    agentExists: (agentId) => service.listAgents().some((agent) => agent.id === agentId && !agent.hiddenAt),
+    routineBelongsToAgent: (routineId, agentId) =>
+      service.listRoutines(agentId).some((routine) => routine.id === routineId),
+    changed: (change) => service.emit("event", { type: "dashboards-changed", change }),
+  });
+  dashboardService = dashboards;
+  const dashboardReports = new DashboardReportReader({
+    database: store.database,
+    answer: (agentId, deliveryId) => {
+      const delivery = mailbox.getDelivery(deliveryId)?.delivery;
+      const threadId = store.list().find((agent) => agent.id === agentId)?.threadId;
+      if (!delivery?.turnId || delivery.recipientAgentId !== agentId || !threadId) return null;
+      const answer = latestTurnAnswer(
+        store.database.readTurnAssistantMessages(agentId, threadId, delivery.turnId),
+        delivery.turnId,
+      );
+      return answer ? { text: answer.text, messageId: answer.id } : null;
+    },
+  });
+  // Reports read the saved response. Invalidate after routine/history changes, without another provider run.
+  service.on("event", (event) => {
+    if (
+      event.type === "routines-changed" ||
+      event.type === "conversation-invalidated" ||
+      event.type === "turn-completed"
+    ) {
+      service.emit("event", { type: "dashboards-changed", change: { kind: "dashboard", agentId: event.agentId } });
+    }
+  });
   // Listens only while an agent allows local scripts; see `AutomationServer`.
   const automation = new AutomationServer({
     root: store.automationRoot,
@@ -1936,6 +1973,8 @@ export async function createApplicationServices({
     appVersion: app.getVersion(),
     store: teamStore,
     agents: service,
+    dashboards,
+    dashboardReports,
     // Defined below with the startup it waits for; a request runs only after this returns.
     agentsReady: () => agentInitialization.awaitSettled(),
     events,
@@ -2632,6 +2671,8 @@ export async function createApplicationServices({
     service,
     routineFlows: routineFlowRuntime,
     routineResults: routineResultRuntime,
+    dashboards,
+    dashboardReports,
     providerRuntimes,
     providerCredentials,
     messaging,

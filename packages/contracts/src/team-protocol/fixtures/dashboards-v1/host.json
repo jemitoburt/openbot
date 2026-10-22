@@ -1,0 +1,48 @@
+{
+  "plugin": { "id": "dashboards", "installed": true, "version": 1 },
+  "dashboard": {
+    "id": "dashboard-1",
+    "agentId": "fitness",
+    "title": "Training",
+    "schemaVersion": 1,
+    "revision": 1,
+    "createdAt": "2026-10-22T06:00:00.000Z",
+    "updatedAt": "2026-10-22T06:00:00.000Z",
+    "archivedAt": null,
+    "blocks": [
+      {
+        "id": "shopping",
+        "type": "checklist",
+        "title": "Shopping",
+        "items": [{ "id": "oats", "text": "Oats", "checked": false }]
+      }
+    ]
+  },
+  "summaries": [
+    {
+      "id": "dashboard-1",
+      "agentId": "fitness",
+      "title": "Training",
+      "schemaVersion": 1,
+      "revision": 1,
+      "createdAt": "2026-10-22T06:00:00.000Z",
+      "updatedAt": "2026-10-22T06:00:00.000Z",
+      "archivedAt": null
+    }
+  ],
+  "report": {
+    "routineId": "routine-1",
+    "status": "failed",
+    "available": true,
+    "text": "Last successful report. [Source](https://example.test/news)",
+    "messageId": "message-1",
+    "updatedAt": "2026-10-22T06:00:00.000Z"
+  },
+  "events": [
+    { "type": "dashboards-changed", "change": { "kind": "installation" } },
+    {
+      "type": "dashboards-changed",
+      "change": { "kind": "dashboard", "agentId": "fitness", "dashboardId": "dashboard-1" }
+    }
+  ]
+}

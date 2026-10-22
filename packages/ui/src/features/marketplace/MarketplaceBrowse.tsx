@@ -1,9 +1,10 @@
 import { SKILL_CATEGORIES, type SkillCategory } from "@openbot/contracts/ipc";
-import { Button, Input, Search, Skeleton, SlidingTabs, Text } from "@openbot/ui";
+import { Badge, Button, Input, Puzzle, Search, Skeleton, SlidingTabs, Text } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
 import type { JSX } from "@solidjs/web";
 import { createEffect, For, Show } from "solid-js";
 import { AgentGrid, AppCard, SkillGrid } from "./MarketplaceCards";
+import { MarketplaceFeaturePlugins } from "./MarketplaceFeaturePlugins";
 import { type FilterGroup, MarketplaceFilter } from "./MarketplaceFilter";
 import { skillAgents } from "./MarketplaceInstallSkill";
 import { Block } from "./MarketplaceParts";
@@ -17,30 +18,34 @@ import {
   type OwnedFilter,
 } from "./marketplace-view";
 
-const TABS: readonly MarketplaceTab[] = ["agents", "apps", "skills"];
+const TABS: readonly MarketplaceTab[] = ["agents", "apps", "skills", "plugins"];
 
 const TAB_LABEL = {
   agents: "marketplace.tab.agents",
   apps: "marketplace.tab.apps",
   skills: "marketplace.tab.skills",
+  plugins: "marketplace.tab.plugins",
 } as const;
 
 const NO_MATCH = {
   agents: "marketplace.noMatch.agents",
   apps: "marketplace.noMatch.apps",
   skills: "marketplace.noMatch.skills",
+  plugins: "marketplace.noMatch.plugins",
 } as const;
 
 const EMPTY = {
   agents: "marketplace.empty.agents",
   apps: "marketplace.empty.apps",
   skills: "marketplace.empty.skills",
+  plugins: "marketplace.empty.plugins",
 } as const;
 
 const SHOW_TAB = {
   agents: "marketplace.noMatch.showAgents",
   apps: "marketplace.noMatch.showApps",
   skills: "marketplace.noMatch.showSkills",
+  plugins: "marketplace.noMatch.showPlugins",
 } as const;
 
 function ownedOf(value: string | null): OwnedFilter | null {
@@ -190,6 +195,12 @@ export function MarketplaceBrowse(props: { scope: MarketplaceScope }) {
     agents: agents().length,
     apps: apps().length,
     skills: skills().length,
+    plugins:
+      model()
+        .plugins?.()
+        .filter((plugin) =>
+          `${plugin.name} ${plugin.description}`.toLowerCase().includes(state().query.trim().toLowerCase()),
+        ).length ?? 0,
   });
   /** A listing that pages shows "50+" while the server holds more rows than the loaded ones. */
   const countLabel = (tab: MarketplaceTab) => {
@@ -288,10 +299,16 @@ export function MarketplaceBrowse(props: { scope: MarketplaceScope }) {
       >
         <div class="marketplace-toolbar">
           <SlidingTabs.List aria-label={t("marketplace.kinds")}>
-            <For each={TABS}>
+            <For each={TABS.filter((tab) => tab !== "plugins" || model().plugins !== undefined)}>
               {(tab) => (
                 <SlidingTabs.Trigger value={tab}>
+                  <Show when={tab === "plugins"}>
+                    <Puzzle aria-hidden="true" />
+                  </Show>
                   {t(TAB_LABEL[tab])}
+                  <Show when={tab === "plugins"}>
+                    <Badge variant="new">{t("marketplace.feature.new")}</Badge>
+                  </Show>
                   <Show when={searching()}>
                     <span class="marketplace-count">{countLabel(tab)}</span>
                   </Show>
@@ -376,6 +393,9 @@ export function MarketplaceBrowse(props: { scope: MarketplaceScope }) {
                 </For>
               </Show>
             </div>
+          </SlidingTabs.Content>
+          <SlidingTabs.Content value="plugins">
+            <MarketplaceFeaturePlugins scope={props.scope} />
           </SlidingTabs.Content>
           <SlidingTabs.Content value="skills">
             <ListingPanel

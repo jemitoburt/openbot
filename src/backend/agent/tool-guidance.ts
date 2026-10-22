@@ -31,6 +31,15 @@ export function toolGuidance(
   }
   if (namespace !== "openbot") return "";
   switch (tool) {
+    case "list_dashboards":
+    case "read_dashboard":
+    case "create_dashboard":
+    case "update_dashboard":
+    case "archive_dashboard":
+      return [
+        "Dashboards are saved views for your own agent. The user installs the Dashboards plugin in Marketplace first. Read the current document before an update and preserve checklist choices; a revision conflict means read again before you merge the update.",
+        "Use report blocks to show a saved answer from one of your existing routines. Get its stable routine id with openbot.list_routines. Keep the routine's normal delivery to the conversation; do not create another routine, repeat its research or generate another summary just to populate a report block. Other block content can be updated by chat or a routine through these dashboard tools.",
+      ].join("\n");
     case "list_tables":
     case "query_data":
     case "execute_data":

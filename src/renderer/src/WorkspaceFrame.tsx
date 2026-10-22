@@ -21,6 +21,8 @@ type WorkspaceFrameProps = ParentProps<
     left: JSX.Element;
     /** The page of the rail. A page other than the agents covers the middle panes, and makes them inert. */
     windowPage: WindowPage;
+    /** Desktop Marketplace is a dialog over the conversation. Web keeps its existing page. */
+    marketplaceModal?: boolean;
     page?: JSX.Element;
     connection?: JSX.Element;
     initialLoading?: boolean;
@@ -39,7 +41,9 @@ type WorkspaceFrameProps = ParentProps<
 export function WorkspaceFrame(props: WorkspaceFrameProps) {
   const platform = usePlatform();
   const layout = useLayout();
-  const pageOpen = () => props.windowPage !== "agents";
+  const displayedPage = () =>
+    props.marketplaceModal && props.windowPage === "marketplace" ? "agents" : props.windowPage;
+  const pageOpen = () => displayedPage() !== "agents";
   const rest = omit(
     props,
     "compact",
@@ -48,6 +52,7 @@ export function WorkspaceFrame(props: WorkspaceFrameProps) {
     "onRetryServer",
     "left",
     "windowPage",
+    "marketplaceModal",
     "page",
     "after",
     "children",
@@ -60,8 +65,8 @@ export function WorkspaceFrame(props: WorkspaceFrameProps) {
     <div
       {...rest}
       ref={platform.setAppFrameElement}
-      data-window-page={props.windowPage}
-      data-window-page-kind={windowPageKind(props.windowPage)}
+      data-window-page={displayedPage()}
+      data-window-page-kind={windowPageKind(displayedPage())}
       class={[
         "app-frame",
         props.class,

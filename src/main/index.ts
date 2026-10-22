@@ -61,6 +61,7 @@ import { channelRoutineIpcHandlers } from "./ipc/channel-routine-handlers";
 import { computerUseIpcHandlers } from "./ipc/computer-use-handlers";
 import { customAgentIpcHandlers } from "./ipc/custom-agent-handlers";
 import { customProviderIpcHandlers } from "./ipc/custom-provider-handlers";
+import { dashboardIpcHandlers } from "./ipc/dashboard-handlers";
 import { registerIpcGroups } from "./ipc/define-ipc-group";
 import { dynamicIslandIpcHandlers } from "./ipc/dynamic-island-handlers";
 import { eventsIpcHandlers } from "./ipc/events-handlers";
@@ -496,6 +497,8 @@ function registerIpcHandlers({
   centralAuth,
   skills,
   hostedSites,
+  dashboards,
+  dashboardReports,
   githubConnector,
   onePasswordConnector,
   bitwardenConnector,
@@ -608,7 +611,10 @@ function registerIpcHandlers({
       remoteServers,
       takePendingInvite: () => takePendingDeepLink("invite"),
     }),
+    ...dashboardIpcHandlers({ dashboards, dashboardReports, remoteServers }),
     ...pluginIpcHandlers({
+      dashboards,
+      remoteServers,
       takePendingPluginSlug: () => takePendingDeepLink("plugin"),
     }),
     ...memoryIpcHandlers({ service, remoteServers }),

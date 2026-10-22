@@ -77,6 +77,38 @@ export const messages = defineMessages("marketplace", {
   "marketplace.properties.updated": "Updated",
   "marketplace.properties.installs": "Installs",
 
+  "marketplace.tab.plugins": "Plugins",
+  "marketplace.noMatch.plugins": "No plugins match this search.",
+  "marketplace.empty.plugins": "No plugins are available on this host.",
+  "marketplace.noMatch.showPlugins": { one: "Show {count} plugin", other: "Show {count} plugins" },
+  "marketplace.feature.new": "New",
+  "marketplace.feature.intro":
+    "Plugins add new workspaces to OpenBot. Install a plugin to add it to the left sidebar and let your agents use it.",
+  "marketplace.feature.yourPlugins": "Your plugins",
+  "marketplace.feature.morePlugins": "More plugins",
+  "marketplace.feature.meta": "OpenBot · Plugin · Version {version}",
+  "marketplace.feature.openNamed": "Open {name}",
+  "marketplace.feature.preview": "Preview",
+  "marketplace.feature.capabilities": "What it adds",
+  "marketplace.feature.permissions": "Access",
+  "marketplace.feature.capability.navigation": "Dashboards in the left sidebar",
+  "marketplace.feature.capability.generate": "Generate dashboard for each agent",
+  "marketplace.feature.capability.widgets": "Widgets with reports, checklists, charts, and saved details",
+  "marketplace.feature.capability.reports": "Routine reports in both chat and dashboards",
+  "marketplace.feature.permission.visibility": "Your existing agent access applies to dashboards",
+  "marketplace.feature.permission.agent": "Agents can change only their own dashboards",
+  "marketplace.feature.dashboards.about":
+    "Each agent can create a dashboard from widgets: a meal plan, projects with tasks, or a morning report. Ask the agent in chat to create or update it.",
+  "marketplace.feature.install": "Install",
+  "marketplace.feature.uninstall": "Uninstall",
+  "marketplace.feature.installed": "Installed",
+  "marketplace.feature.adminOnly": "A host administrator can install or uninstall plugins.",
+  "marketplace.feature.retained":
+    "Uninstall hides the plugin. Saved dashboards stay on this host and return when you install it again.",
+  "marketplace.feature.dashboards.name": "Dashboards",
+  "marketplace.feature.dashboards.description":
+    "Agent dashboards with reports, checklists, charts, calendars, and project details.",
+
   // Agents.
   "marketplace.agent.add": "Add",
   "marketplace.agent.addNamed": "Add {name}",

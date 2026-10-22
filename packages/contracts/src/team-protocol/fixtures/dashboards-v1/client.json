@@ -1,0 +1,122 @@
+{
+  "capabilities": ["plugins-v1", "dashboards-v1"],
+  "requests": [
+    {
+      "path": "/v1/plugins/state",
+      "body": {}
+    },
+    {
+      "path": "/v1/plugins/set-installed",
+      "body": {
+        "installed": true
+      }
+    },
+    {
+      "path": "/v1/dashboards/list",
+      "body": {
+        "agentId": "fitness"
+      }
+    },
+    {
+      "path": "/v1/dashboards/create",
+      "body": {
+        "agentId": "fitness",
+        "title": "Training",
+        "blocks": [
+          {
+            "id": "shopping",
+            "type": "checklist",
+            "title": "Shopping",
+            "items": [
+              {
+                "id": "oats",
+                "text": "Oats",
+                "checked": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "path": "/v1/dashboards/read",
+      "body": {
+        "id": "dashboard-1"
+      }
+    },
+    {
+      "path": "/v1/dashboards/update",
+      "body": {
+        "id": "dashboard-1",
+        "revision": 1,
+        "title": "Training",
+        "blocks": []
+      }
+    },
+    {
+      "path": "/v1/dashboards/toggle-item",
+      "body": {
+        "id": "dashboard-1",
+        "revision": 1,
+        "blockId": "shopping",
+        "itemId": "oats",
+        "checked": true
+      }
+    },
+    {
+      "path": "/v1/dashboards/report",
+      "body": {
+        "dashboardId": "dashboard-2",
+        "blockId": "morning"
+      }
+    },
+    {
+      "path": "/v1/dashboards/archive",
+      "body": {
+        "id": "dashboard-1",
+        "revision": 2
+      }
+    },
+    {
+      "path": "/v1/dashboards/edit-widget",
+      "body": {
+        "id": "dashboard-1",
+        "revision": 2,
+        "edit": {
+          "type": "addChecklistItems",
+          "blockId": "shopping",
+          "items": [
+            {
+              "id": "milk",
+              "text": "Milk",
+              "checked": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "/v1/dashboards/edit-widget",
+      "body": {
+        "id": "dashboard-1",
+        "revision": 3,
+        "edit": {
+          "type": "addRecipeIngredients",
+          "recipeBlockId": "recipe",
+          "portions": 2
+        }
+      }
+    },
+    {
+      "path": "/v1/dashboards/edit-widget",
+      "body": {
+        "id": "dashboard-2",
+        "revision": 1,
+        "edit": {
+          "type": "addReport",
+          "routineId": "morning"
+        }
+      }
+    }
+  ]
+}

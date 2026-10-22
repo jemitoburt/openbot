@@ -7,7 +7,7 @@ import { useText } from "./text";
 
 export type { TooltipContentProps } from "solid-recharts";
 
-export { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "solid-recharts";
+export { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "solid-recharts";
 
 export function ChartContainer(props: {
   children: ComponentProps<typeof ResponsiveContainer>["children"];

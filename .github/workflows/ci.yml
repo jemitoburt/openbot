@@ -353,12 +353,27 @@ jobs:
         if: ${{ !cancelled() }}
         run: bun run test:zip-attachments
 
+      - name: Run the dashboard service E2E test
+        if: ${{ !cancelled() }}
+        run: node --import tsx scripts/dashboards-e2e.ts
+
+      - name: Run the routine dashboard report E2E test
+        if: ${{ !cancelled() }}
+        run: node --import tsx scripts/dashboard-reports-e2e.ts
+
+      - name: Run the dashboard remote transport E2E test
+        if: ${{ !cancelled() }}
+        run: node --import tsx scripts/dashboard-transport-e2e.ts
+
       - name: Upload the reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: reverse-actions-e2e
           path: |
+            .openbot-build/dashboards-e2e.json
+            .openbot-build/dashboard-reports-e2e.json
+            .openbot-build/dashboard-transport-e2e.json
             .openbot-build/team-api-legacy-clients-e2e/
             .openbot-build/team-session-revoke-e2e/
             .openbot-build/server-mute-e2e/

@@ -92,6 +92,8 @@ interface HostServiceOptions {
   mcpToolRuntimePreparation?: ForwardedApiOptions["mcpToolRuntimePreparation"];
   storage?: ForwardedApiOptions["storage"];
   hostedSites?: ForwardedApiOptions["hostedSites"];
+  dashboards?: ForwardedApiOptions["dashboards"];
+  dashboardReports?: ForwardedApiOptions["dashboardReports"];
   events?: ForwardedApiOptions["events"];
   agentImport?: ForwardedApiOptions["agentImport"];
   instanceTransfer?: ForwardedApiOptions["instanceTransfer"];
@@ -371,6 +373,8 @@ export class HostService extends EventEmitter<HostEvents> {
         : { mcpToolRuntimePreparation: options.mcpToolRuntimePreparation }),
       ...(options.storage === undefined ? {} : { storage: options.storage }),
       ...(options.hostedSites === undefined ? {} : { hostedSites: options.hostedSites }),
+      ...(options.dashboards === undefined ? {} : { dashboards: options.dashboards }),
+      ...(options.dashboardReports === undefined ? {} : { dashboardReports: options.dashboardReports }),
       ...(options.events === undefined ? {} : { events: options.events }),
       ...(options.agentImport === undefined ? {} : { agentImport: options.agentImport }),
       ...(options.instanceTransfer === undefined ? {} : { instanceTransfer: options.instanceTransfer }),

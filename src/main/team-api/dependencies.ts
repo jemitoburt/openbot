@@ -1,5 +1,6 @@
 import type { Effect } from "effect";
 import type { ChannelService } from "../../backend/channel-service";
+import type { DashboardService } from "../../backend/dashboards/dashboard-service";
 import type { AcpRegistry } from "../acp-registry";
 import type { AgentAccessStore } from "../agent-access-store";
 import type { AgentAdminSettingsService } from "../agent-admin-settings";
@@ -8,6 +9,7 @@ import type { AgentMarketplaceService } from "../agent-marketplace-service";
 import type { AgentMemoryLimitSetting } from "../agent-memory-limit-preference-store";
 import type { AgentTemplateService } from "../agent-template-service";
 import type { PeerCustomProviderChanges } from "../custom-provider-changes";
+import type { DashboardReportReader } from "../dashboard-report-reader";
 import type { HostEventsApi } from "../host-events-api";
 import type { HostReleaseService } from "../host-release-service";
 import type { HostService } from "../host-service";
@@ -360,7 +362,15 @@ export type TeamApiOnePasswordConnector = Pick<
 
 export type TeamApiAgentAccess = Pick<AgentAccessStore, "copyAgent" | "get" | "levels" | "set" | "subscribe">;
 
+export type TeamApiDashboards = Pick<
+  DashboardService,
+  "pluginState" | "setInstalled" | "list" | "read" | "create" | "update" | "archive" | "toggleItem" | "editWidget"
+>;
+export type TeamApiDashboardReports = Pick<DashboardReportReader, "read">;
+
 export interface TeamApiOptions {
+  dashboards?: TeamApiDashboards;
+  dashboardReports?: TeamApiDashboardReports;
   /** `events-v1`: admin-only event source and routine management. */
   events?: HostEventsApi | undefined;
   channels?: ChannelService | undefined;

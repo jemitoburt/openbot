@@ -20,6 +20,7 @@ import { conversationPort } from "./features/conversation/conversation-port";
 import { useCustomAgents } from "./features/custom-agents/custom-agents-context";
 import { useCustomProviders } from "./features/custom-providers/custom-providers-context";
 import { useProviderDetection } from "./features/custom-providers/provider-detection-context";
+import { useDashboards } from "./features/dashboards/dashboards-context";
 import type { ServerStorageOptions } from "./features/files/ServerStoragePanel";
 import { useSetup } from "./features/onboarding/onboarding-context";
 import { useRemoteDesktop } from "./features/remote-desktop/remote-desktop-context";
@@ -93,6 +94,7 @@ export function WorkspaceOverlays(props: AccountProps) {
   );
   return (
     <>
+      <SkillsMarketplace />
       <SharedAgentInstall />
       <JoinServer account={props.account} />
       <AddServer />
@@ -115,9 +117,10 @@ export function WorkspaceOverlays(props: AccountProps) {
  * serves `agent-install-v1`, otherwise to this computer. An agent of a joined server is updated from
  * its listing only when its host serves `agent-update-v1`.
  *
- * It is a page of the window, so the shell shows it in the card rather than over the workspace.
+ * It opens as a dialog over the desktop conversation. The web client keeps its own placement.
  */
 export function SkillsMarketplace() {
+  const dashboards = useDashboards();
   const {
     skillsMarketplaceOpen,
     setSkillsMarketplaceOpen,
@@ -132,7 +135,7 @@ export function SkillsMarketplace() {
   const { openInstalledMarketplaceAgent } = useServerSelection();
   const connectors = useConnectors();
   const { remoteDesktopWorkspaceVisible, hideRemoteDesktopWorkspace } = useRemoteDesktop();
-  // The remote desktop covers the window card, so a link or a search that opens the page hides it.
+  // A link or a search that opens Marketplace hides the remote desktop workspace.
   // The remote desktop session stays.
   createEffect(skillsMarketplaceOpen, (open) => {
     if (open && untrack(remoteDesktopWorkspaceVisible)) hideRemoteDesktopWorkspace();
@@ -155,7 +158,8 @@ export function SkillsMarketplace() {
         setPendingPluginConnect(false);
       }}
       connectors={connectors.active}
-      variant="page"
+      variant="dialog"
+      featurePlugins={dashboards.model}
     />
   );
 }

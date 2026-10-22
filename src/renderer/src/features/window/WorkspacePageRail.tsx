@@ -6,6 +6,7 @@ import { useText } from "@openbot/ui/text";
 import { appPort } from "../../app-port";
 import { useLayout } from "../../layout";
 import { useChannels } from "../channels/channels-context";
+import { useDashboards } from "../dashboards/dashboards-context";
 import { serverSupportsCapability } from "../servers/server-capabilities";
 import { useServers } from "../servers/servers-context";
 import { useSettings } from "../settings/settings-context";
@@ -21,6 +22,7 @@ import { useWindowPage } from "./window-page-context";
  */
 export function WorkspacePageRail(props: { hidden: boolean }) {
   const text = useText();
+  const dashboards = useDashboards();
   const windowPage = useWindowPage();
   const { openAppSettings, setSkillsMarketplaceOpen } = useSettings();
   const updates = useUpdates();
@@ -50,12 +52,18 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
   const current = (): PageRailPage | null => {
     const page = windowPage.page();
     if (page === "agents") return layout.sidebarView();
-    return page === "server-settings" ? null : page;
+    return page === "server-settings" || page === "plugin" ? null : page;
   };
   return (
     <PageRail
       hidden={props.hidden}
       current={current()}
+      currentPluginId={windowPage.pluginId()}
+      plugins={
+        dashboards.installed()
+          ? [{ id: "dashboards", label: text.t("app.dashboards.title"), onOpen: dashboards.open }]
+          : []
+      }
       usageRows={usageRows()}
       onAgents={() => showSidebarView("agents")}
       onRoutines={() => showSidebarView("routines")}

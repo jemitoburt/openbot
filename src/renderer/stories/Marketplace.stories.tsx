@@ -57,13 +57,14 @@ interface StoryProps {
   /** A member of a joined server browses and adds nothing. */
   member?: boolean;
   empty?: boolean;
+  featureInstalled?: boolean;
   /** Opens the window on this page, as a link or a click would. */
   start?: (nav: MarketplaceNavigation) => void;
 }
 
 /** The real window on fixtures. Each action changes the fixture state, so the states can be tried. */
 function MarketplaceStory(props: StoryProps) {
-  const { member, empty, start } = untrack(() => ({ ...props }));
+  const { member, empty, start, featureInstalled } = untrack(() => ({ ...props }));
   const agents = empty ? [] : STORY_MARKETPLACE_AGENTS;
   const skills = empty ? [] : STORY_MARKETPLACE_SKILLS;
   const firstSkill = STORY_MARKETPLACE_SKILLS[0];
@@ -89,6 +90,7 @@ function MarketplaceStory(props: StoryProps) {
     apps: MarketplaceApp[];
     busy: Record<string, true>;
     notice: string;
+    dashboardsInstalled: boolean;
   }>({
     added: { [STORY_MARKETPLACE_AGENTS[1]?.id ?? ""]: true },
     installed: { chief: firstSkill ? [installed(firstSkill)] : [] },
@@ -118,6 +120,7 @@ function MarketplaceStory(props: StoryProps) {
     ],
     busy: {},
     notice: "",
+    dashboardsInstalled: featureInstalled ?? false,
   });
   const [error, setError] = createSignal<string | null>(null);
   const [open, setOpen] = createSignal(true);
@@ -128,6 +131,22 @@ function MarketplaceStory(props: StoryProps) {
     });
 
   const model: MarketplaceModel = {
+    plugins: () => [
+      {
+        id: "dashboards",
+        name: "Dashboards",
+        description: "Reports, checklists, charts, and saved views from your agents.",
+        version: "1",
+        installed: state.dashboardsInstalled,
+      },
+    ],
+    canManagePlugins: () => !member,
+    pluginBusy: () => false,
+    setPluginInstalled: (_id, installed) =>
+      setState((draft) => {
+        draft.dashboardsInstalled = installed;
+      }),
+    openPlugin: fn(),
     listAgents: async (query) => page<MarketplaceAgentSummary>(agents, query),
     loadAgent: async (id) => STORY_MARKETPLACE_AGENT_DETAILS[id],
     agentState: (listing) => (member ? null : state.added[listing.id] ? "added" : "add"),
@@ -205,7 +224,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const tab = (value: "apps" | "skills") => (nav: MarketplaceNavigation) =>
+const tab = (value: "apps" | "skills" | "plugins") => (nav: MarketplaceNavigation) =>
   nav.set((draft) => {
     draft.tab = value;
   });
@@ -237,6 +256,24 @@ export const CustomServer = at((nav) => {
 });
 
 export const Skills = at(tab("skills"));
+
+export const FeaturePlugins = at(tab("plugins"));
+
+export const FeaturePluginsInstalled = at(tab("plugins"), { featureInstalled: true });
+
+export const FeaturePluginDetail = at(
+  (nav) => {
+    nav.go({ kind: "feature-plugin", id: "dashboards" });
+  },
+  { featureInstalled: true },
+);
+
+export const FeaturePluginMember = at(
+  (nav) => {
+    nav.go({ kind: "feature-plugin", id: "dashboards" });
+  },
+  { member: true, featureInstalled: true },
+);
 
 export const SkillPage = at((nav) => {
   const listing = STORY_MARKETPLACE_SKILLS[0];

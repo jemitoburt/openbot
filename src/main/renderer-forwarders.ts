@@ -96,6 +96,11 @@ export function createRendererForwarders({
       IPC_ENDPOINTS.agent.scopedEvent,
       bufferedLive ? { serverId, event, bufferedLive } : { serverId, event },
     );
+    if (event.type === "dashboards-changed") {
+      sendToRenderer(window, IPC_ENDPOINTS.dashboards.changed, { serverId, change: event.change });
+      if (event.change.kind === "installation")
+        sendToRenderer(window, IPC_ENDPOINTS.plugins.changed, { serverId, change: event.change });
+    }
     void notifyAgentEvent(serverId, event).catch(() => undefined);
   }
 

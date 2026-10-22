@@ -13,6 +13,28 @@
 
 :root {
   --openbot-provider-current: currentcolor;
+  /* Dashboard widget roles from the D11 widget kit. */
+  --openbot-dashboard-tone-lavender: #d6adf2;
+  --openbot-text-dashboard-title: 40px;
+  --openbot-dashboard-tone-mustard: #e3b866;
+  --openbot-dashboard-tone-sky: #74b9ff;
+  --openbot-dashboard-tone-green: #61c985;
+  --openbot-dashboard-on-tone: #141414;
+  --openbot-dashboard-on-tone-muted: #14141485;
+  --openbot-dashboard-on-tone-border: #14141424;
+  --openbot-dashboard-widget-radius: 24px;
+  --openbot-dashboard-widget-padding: 18px;
+  --openbot-dashboard-widget-gap: 14px;
+  --openbot-dashboard-meta-size: 11px;
+  --openbot-dashboard-caption-size: 10px;
+  --openbot-dashboard-stat-size: 36px;
+  --openbot-dashboard-weather-size: 56px;
+  --openbot-marketplace-plugin-title-size: 40px;
+  --openbot-marketplace-plugin-meta-size: 10px;
+  --openbot-marketplace-plugin-icon-radius: 10px;
+  --openbot-marketplace-plugin-hero-icon-radius: 18px;
+  --openbot-marketplace-overlay: rgba(0, 0, 0, 0.4);
+
   /* Main screen canvas and drawer, used by the native app. */
   --openbot-bg-native-canvas: #141414;
   --openbot-bg-native-sidebar: #141414;

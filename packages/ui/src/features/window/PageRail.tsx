@@ -4,6 +4,7 @@ import {
   Button,
   CalendarClock,
   ChartArea,
+  LayoutDashboard,
   ListChecks,
   MotionTooltip,
   Settings,
@@ -129,6 +130,8 @@ export type PageRailPage = "agents" | "routines" | "tasks" | "schedule" | "usage
 
 export interface PageRailProps {
   hidden: boolean;
+  plugins?: readonly { id: string; label: string; onOpen: () => void }[] | undefined;
+  currentPluginId?: string | null | undefined;
   /** The page in the card, or `null` while a page that the rail does not open shows. */
   current: PageRailPage | null;
   /** The plan limits of each provider account. Each one with a reported window shows as rings. */
@@ -198,6 +201,13 @@ export function PageRail(props: PageRailProps) {
         <RailButton label={t("app.rail.usage")} current={props.current === "usage"} onClick={props.onUsage}>
           <ChartArea aria-hidden="true" />
         </RailButton>
+        <For each={props.plugins}>
+          {(plugin) => (
+            <RailButton label={plugin.label} current={props.currentPluginId === plugin.id} onClick={plugin.onOpen}>
+              <LayoutDashboard aria-hidden="true" />
+            </RailButton>
+          )}
+        </For>
       </div>
       <div class="window-rail-group">
         {/* A status update builds new rows. The key keeps each ring, and its open hover card, mounted. */}

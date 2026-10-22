@@ -13,9 +13,10 @@ export type MarketplaceView =
   | { kind: "browse" }
   | { kind: "agent"; listing: MarketplaceAgentSummary }
   | { kind: "skill"; listing: MarketplaceSkillSummary }
-  | { kind: "app"; id: string };
+  | { kind: "app"; id: string }
+  | { kind: "feature-plugin"; id: string };
 
-export type MarketplaceTab = "agents" | "apps" | "skills";
+export type MarketplaceTab = "agents" | "apps" | "skills" | "plugins";
 
 /** "yes": only what the user has. "no": only what the user does not have. */
 export type OwnedFilter = "yes" | "no";
@@ -88,7 +89,7 @@ export function createMarketplaceNavigation(): MarketplaceNavigation {
 }
 
 export function isMarketplaceTab(value: string): value is MarketplaceTab {
-  return value === "agents" || value === "apps" || value === "skills";
+  return value === "agents" || value === "apps" || value === "skills" || value === "plugins";
 }
 
 /**

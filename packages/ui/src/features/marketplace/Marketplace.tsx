@@ -5,6 +5,7 @@ import { createEffect, For, Match, onCleanup, onSettled, Show, Switch } from "so
 import { MarketplaceAgentPage } from "./MarketplaceAgentPage";
 import { MarketplaceAppPage } from "./MarketplaceAppPage";
 import { MarketplaceBrowse } from "./MarketplaceBrowse";
+import { MarketplaceFeaturePluginPage } from "./MarketplaceFeaturePlugins";
 import { MarketplaceSkillPage } from "./MarketplaceSkillPage";
 import { createMarketplaceListing } from "./marketplace-listing";
 import type { MarketplaceModel } from "./marketplace-model";
@@ -27,6 +28,8 @@ function viewTitle(scope: MarketplaceScope, view: MarketplaceView, fallback: str
     case "agent":
     case "skill":
       return view.listing.name;
+    case "feature-plugin":
+      return scope.model.plugins?.().find((plugin) => plugin.id === view.id)?.name ?? fallback;
     case "app":
       return scope.model.apps().find((app) => app.id === view.id)?.name ?? fallback;
   }
@@ -36,10 +39,12 @@ function viewTitle(scope: MarketplaceScope, view: MarketplaceView, fallback: str
 function Crumbs(props: { scope: MarketplaceScope; page: boolean }) {
   const { t } = useText();
   const stack = () => props.scope.nav.state.stack;
-  const title = (view: MarketplaceView) => viewTitle(props.scope, view, t("marketplace.title"));
+  const title = (view: MarketplaceView) =>
+    view.kind === "feature-plugin" ? t("marketplace.title") : viewTitle(props.scope, view, t("marketplace.title"));
+  const featureDetail = () => stack().at(-1)?.kind === "feature-plugin";
   return (
     <nav class="marketplace-crumbs" aria-label={t("marketplace.crumbs.label")}>
-      <For each={stack().slice(0, -1)}>
+      <For each={featureDetail() ? [] : stack().slice(0, -1)}>
         {(view, index) => (
           <>
             <Button
@@ -181,6 +186,9 @@ function MarketplaceWindow(props: MarketplaceProps) {
                 </Match>
                 <Match when={view.kind === "skill" && view.listing} keyed>
                   {(listing) => <MarketplaceSkillPage scope={scope} listing={listing} />}
+                </Match>
+                <Match when={view.kind === "feature-plugin" && view.id} keyed>
+                  {(id) => <MarketplaceFeaturePluginPage scope={scope} id={id} />}
                 </Match>
                 <Match when={view.kind === "app" && view.id} keyed>
                   {(id) => <MarketplaceAppPage scope={scope} id={id} />}

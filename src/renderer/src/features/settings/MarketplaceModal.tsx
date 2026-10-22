@@ -1,5 +1,5 @@
 import { Marketplace } from "@openbot/ui/features/marketplace/Marketplace";
-import type { MarketplaceApp } from "@openbot/ui/features/marketplace/marketplace-model";
+import type { MarketplaceApp, MarketplaceModel } from "@openbot/ui/features/marketplace/marketplace-model";
 import { createMarketplaceNavigation } from "@openbot/ui/features/marketplace/marketplace-view";
 import { McpKeyDialog } from "@openbot/ui/features/settings/McpKeyDialog";
 import { McpLocalDialog } from "@openbot/ui/features/settings/McpLocalDialog";
@@ -10,6 +10,12 @@ import { createEffect, createSignal, Match, Show, Switch, untrack } from "solid-
 import { createMarketplaceController, type MarketplaceControllerProps } from "./marketplace-controller";
 
 export interface MarketplaceModalProps extends MarketplaceControllerProps {
+  featurePlugins?:
+    | Pick<
+        MarketplaceModel,
+        "plugins" | "pluginBusy" | "canManagePlugins" | "setPluginInstalled" | "openPlugin" | "error" | "clearError"
+      >
+    | undefined;
   /**
    * The listing an `openbot://plugins/<slug>` link or a chat suggestion asked for. It opens the app
    * page; a link never connects, so what a link can do is show a user a listing they then decide
@@ -122,7 +128,15 @@ export function MarketplaceModal(props: MarketplaceModalProps) {
   return (
     <>
       <Marketplace
-        model={controller.model}
+        model={{
+          ...controller.model,
+          ...props.featurePlugins,
+          error: () => props.featurePlugins?.error() ?? controller.model.error(),
+          clearError: () => {
+            props.featurePlugins?.clearError();
+            controller.model.clearError();
+          },
+        }}
         nav={nav}
         open={props.open}
         onOpenChange={props.onOpenChange}

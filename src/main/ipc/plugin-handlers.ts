@@ -1,21 +1,55 @@
+import { PLUGIN_ROUTES, PLUGINS_CAPABILITY } from "@openbot/contracts/team-protocol/dashboards-v1";
+import { sourceText } from "@openbot/i18n/source";
+import type { DashboardService } from "../../backend/dashboards/dashboard-service";
+import { runCauseEffect } from "../../backend/effect-boundary";
+import { runDashboardEffect } from "../dashboard-boundary";
+import { decodePluginStateFromHost } from "../remote-dashboard-decoding";
+import type { DashboardIpcDependencies } from "./dashboard-handlers";
+import { parsePluginInstalled } from "./dashboard-inputs";
 import { handler, type IpcGroupHandlers } from "./define-ipc-group";
+import { scopedHandler, scopedQueryHandler } from "./scoped-handler";
 
 interface PluginIpcDependencies {
-  /** The slug of a plugin link that arrived before a window could be told, taken exactly once. */
+  dashboards: Pick<DashboardService, "pluginState" | "setInstalled">;
+  remoteServers: DashboardIpcDependencies["remoteServers"];
+  /** A listing link received before the renderer loaded, taken exactly once. */
   takePendingPluginSlug: () => string | null;
 }
 
-/**
- * The plugin deep link, and nothing else.
- *
- * There is no install endpoint here on purpose. A link names a listing; installing it is still a
- * press of Install inside the dialog, against an agent the user picks. Adding an endpoint that
- * installed from a slug would make a web page able to install software.
- */
-export function pluginIpcHandlers({ takePendingPluginSlug }: PluginIpcDependencies): Pick<IpcGroupHandlers, "plugins"> {
+/** Host plugins and existing integration listing links. A link never installs software. */
+export function pluginIpcHandlers({
+  dashboards,
+  remoteServers,
+  takePendingPluginSlug,
+}: PluginIpcDependencies): Pick<IpcGroupHandlers, "plugins"> {
   return {
     plugins: {
       takePendingListing: handler(takePendingPluginSlug),
+      state: scopedQueryHandler({
+        local: () => runDashboardEffect(dashboards.pluginState()),
+        remote: (serverId) =>
+          remoteServers.supportsCapability(serverId, PLUGINS_CAPABILITY)
+            ? runCauseEffect(
+                remoteServers.request(serverId, PLUGIN_ROUTES.state, decodePluginStateFromHost, {
+                  method: "POST",
+                  body: {},
+                }),
+              )
+            : null,
+      }),
+      setInstalled: scopedHandler(parsePluginInstalled, {
+        local: (installed) => runDashboardEffect(dashboards.setInstalled(installed)),
+        remote: (installed, serverId) => {
+          if (!remoteServers.supportsCapability(serverId, PLUGINS_CAPABILITY))
+            throw new Error(sourceText("error.dashboard.unsupported"));
+          return runCauseEffect(
+            remoteServers.request(serverId, PLUGIN_ROUTES.setInstalled, decodePluginStateFromHost, {
+              method: "POST",
+              body: { installed },
+            }),
+          );
+        },
+      }),
     },
   };
 }

@@ -390,6 +390,12 @@
     pointer-events: none;
   }
 
+  /* Dashboards provide their own sidebar and main breadcrumb from the top of the frame. */
+  .app-frame-edge[data-window-page="plugin"] > .window-page {
+    top: 0;
+    pointer-events: auto;
+  }
+
   .app-frame-edge.app-frame-with-server-rail:not([data-window-page-kind="agents"]) > .window-page {
     left: calc(var(--server-rail-width) + 1px);
   }
@@ -687,5 +693,71 @@
   .settings-page-results {
     max-height: 40dvh;
     padding-bottom: var(--openbot-space-2);
+  }
+}
+
+/* Keep the workspace menu above the plugin sidebar. The saved sidebar layout returns when the
+ * user leaves the plugin; the plugin does not change its width or server-rail preference. */
+.app-window > .app-frame-edge[data-window-page="plugin"] {
+  --dashboard-sidebar-width: 280px;
+}
+
+.app-window > .app-frame-edge[data-window-page="plugin"] > .window-page {
+  position: absolute;
+  grid-row: 1 / -1;
+  grid-column: 1 / -1;
+  inset: 0 calc(var(--window-edge) + 1px) calc(var(--window-edge) + 1px) 1px;
+  pointer-events: auto;
+}
+
+.app-window > .app-frame-edge[data-window-page="plugin"] > .sidebar {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  width: var(--dashboard-sidebar-width);
+  height: var(--left-header-height);
+  overflow: visible;
+  background: transparent;
+  pointer-events: none;
+}
+
+.app-window > .app-frame-edge[data-window-page="plugin"] > .sidebar .sidebar-topbar {
+  height: var(--left-header-height);
+  padding: 0 var(--openbot-space-2) 0 var(--openbot-space-3);
+  pointer-events: auto;
+}
+
+.app-window > .app-frame-edge[data-window-page="plugin"] > .sidebar .sidebar-topbar::after {
+  content: none;
+}
+
+.app-window > .app-frame-edge[data-window-page="plugin"] > .sidebar > :not(.sidebar-topbar),
+.app-window > .app-frame-edge[data-window-page="plugin"] > .left-panel-resizer,
+.app-window > .app-frame-edge[data-window-page="plugin"] > .server-rail {
+  display: none;
+}
+
+.app-window > .app-frame-edge[data-window-page="plugin"]::before {
+  left: 0;
+}
+
+.app-window > .app-frame-edge[data-window-page="plugin"] .dashboard-topbar {
+  -webkit-app-region: drag;
+}
+
+.app-window > .app-frame-edge[data-window-page="plugin"] .dashboard-topbar :is(button, input) {
+  -webkit-app-region: no-drag;
+}
+
+@media (max-width: 900px) {
+  .app-window > .app-frame-edge[data-window-page="plugin"] {
+    --dashboard-sidebar-width: 220px;
+  }
+}
+
+@media (max-width: 620px) {
+  .app-window > .app-frame-edge[data-window-page="plugin"] {
+    --dashboard-sidebar-width: 160px;
   }
 }

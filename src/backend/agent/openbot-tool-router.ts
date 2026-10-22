@@ -35,6 +35,7 @@ import type { AgentTasks } from "../agent-tasks/agent-tasks";
 import type { AgentWaits } from "../agent-waits/agent-waits";
 import { OPENBOT_BROWSER_NAMESPACE } from "../browser-tools";
 import type { ChannelService } from "../channel-service";
+import type { DashboardService } from "../dashboards/dashboard-service";
 import type { ProviderSession } from "../database/provider-sessions";
 import type { MailboxStore } from "../mailbox-store";
 import { agentMcpServers } from "../mcp-provider-shapes";
@@ -60,6 +61,7 @@ import { loadAvatarFile } from "./avatar-file";
 import type { BrowserUploads } from "./browser-uploads";
 import type { ChatVisualPreviewHost } from "./chat-visual-preview";
 import type { ConversationRuntime } from "./conversation-runtime";
+import { handleDashboardTool } from "./dashboard-tools";
 import { handleDataTool } from "./data-tools";
 import { responseAttachmentMessageId, visualReplyFileName, visualReplyMessageId } from "./delivery-content";
 import type { DrainScheduler } from "./drain-scheduler";
@@ -158,6 +160,7 @@ export interface OpenBotToolRouterOptions {
   tasks: AgentTasks;
   drain: DrainScheduler;
   tables: AgentTables | null;
+  dashboards?: (() => DashboardService | null) | undefined;
   sidebarLayout: AgentSidebar | null;
   localSkillTools?: (() => LocalSkillTools) | undefined;
   routineFlowTools?: (() => RoutineFlowTools) | undefined;
@@ -195,6 +198,7 @@ export class OpenBotToolRouter {
   readonly #tasks: AgentTasks;
   readonly #drain: DrainScheduler;
   readonly #tables: AgentTables | null;
+  readonly #dashboards: (() => DashboardService | null) | undefined;
   readonly #sidebarLayout: AgentSidebar | null;
   readonly #localSkillTools: (() => LocalSkillTools) | undefined;
   readonly #routineFlowTools: (() => RoutineFlowTools) | undefined;
@@ -227,6 +231,7 @@ export class OpenBotToolRouter {
     this.#tasks = options.tasks;
     this.#drain = options.drain;
     this.#tables = options.tables;
+    this.#dashboards = options.dashboards;
     this.#sidebarLayout = options.sidebarLayout;
     this.#localSkillTools = options.localSkillTools;
     this.#routineFlowTools = options.routineFlowTools;
@@ -837,6 +842,14 @@ export class OpenBotToolRouter {
 
     const taskResult = yield* this.#tasks.handleTool(params, caller);
     if (taskResult) return taskResult;
+
+    const dashboardResult = yield* handleDashboardTool(
+      params.tool,
+      params.arguments,
+      senderAgentId,
+      this.#dashboards?.() ?? null,
+    );
+    if (dashboardResult) return dashboardResult;
 
     const tableResult = yield* handleDataTool(params.tool, params.arguments, senderAgentId, this.#tables);
     if (tableResult) return tableResult;

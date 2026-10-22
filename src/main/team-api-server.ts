@@ -86,6 +86,7 @@ import {
   TEAM_UI_BLOCKS_CAPABILITY,
   type TeamCurrentCapability,
 } from "@openbot/contracts/team-protocol/current";
+import { DASHBOARDS_CAPABILITY, PLUGINS_CAPABILITY } from "@openbot/contracts/team-protocol/dashboards-v1";
 import { FOCUS_USE_INTERVAL_MS } from "@openbot/contracts/team-protocol/focus-use-v1";
 import {
   HOST_RESTART_EVENT,
@@ -167,6 +168,7 @@ import { routeChannels } from "./team-api/route-channels";
 import { routeConnectors } from "./team-api/route-connectors";
 import { routeContextReset } from "./team-api/route-context-reset";
 import { routeConversationFiles } from "./team-api/route-conversation-files";
+import { routeDashboards } from "./team-api/route-dashboards";
 import { routeDirect } from "./team-api/route-direct";
 import { routeDiscordAccess } from "./team-api/route-discord-access";
 import { routeEvents } from "./team-api/route-events";
@@ -820,6 +822,15 @@ export class TeamApiServer {
       if ((await routeProviderHostSignIn(context, this.#options.providerHostSignIns)) === "handled") return;
       if ((await routeProviderAccounts(context, this.#options.providerAccounts)) === "handled") return;
       if ((await routeStorage(context, this.#options.storage)) === "handled") return;
+      if (
+        (await routeDashboards(
+          context,
+          this.#options.dashboards,
+          this.#options.dashboardReports,
+          this.hiddenAgentIds(context.protocol, context.capabilities, context.member),
+        )) === "handled"
+      )
+        return;
       if ((await routeHostedSites(context, this.#options.hostedSites)) === "handled") return;
       if ((await routeAgentAdmin(context, this.#options.admin, hidden)) === "handled") return;
       if ((await routeAgentHostSettings(context, this.#options.admin, hidden)) === "handled") return;
@@ -1208,7 +1219,7 @@ export class TeamApiServer {
         if (
           agentId !== null &&
           (blocked.has(agentId) ||
-            (requiredCapability === AGENT_TASKS_CAPABILITY
+            (requiredCapability === AGENT_TASKS_CAPABILITY || requiredCapability === DASHBOARDS_CAPABILITY
               ? this.hiddenAgentIds(protocol, connection.capabilities)
               : hiddenProviderAgentIds(this.#options.agents.listAgents(), protocol)
             ).has(agentId))
@@ -1844,6 +1855,9 @@ export class TeamApiServer {
         if (capability === PROVIDER_HOST_SIGN_IN_CAPABILITY) return this.#options.providerHostSignIns !== undefined;
         if (capability === PROVIDER_ACCOUNTS_CAPABILITY) return this.#options.providerAccounts !== undefined;
         if (capability === STORAGE_CAPABILITY) return this.#options.storage !== undefined;
+        if (capability === PLUGINS_CAPABILITY) return this.#options.dashboards !== undefined;
+        if (capability === DASHBOARDS_CAPABILITY)
+          return this.#options.dashboards !== undefined && this.#options.dashboardReports !== undefined;
         if (capability === HOSTED_SITES_CAPABILITY) return this.#options.hostedSites !== undefined;
         if (capability === AGENT_ADMIN_CAPABILITY) return this.#options.admin?.agents !== undefined;
         if (capability === ACP_REGISTRY_CAPABILITY) return this.#options.admin?.acpRegistry !== undefined;
@@ -2016,11 +2030,14 @@ function isLegacyConversationClient(connection: EventClientState): boolean {
 
 /** The agent that an optional event names. The task list and a task conversation name it in their snapshot. */
 function optionalEventAgentId(event: OptionalTeamEvent): string | null {
+  if (event.type === "dashboards-changed") return event.change.agentId ?? null;
   if (event.type === "agent-tasks-changed" || event.type === "agent-task-conversation") return event.snapshot.agentId;
   return "agentId" in event ? event.agentId : null;
 }
 
 function eventCapability(event: AgentEvent): TeamCurrentCapability | null {
+  if (event.type === "dashboards-changed")
+    return event.change.kind === "installation" ? PLUGINS_CAPABILITY : DASHBOARDS_CAPABILITY;
   if (
     event.type === "channels-changed" ||
     event.type === "channel-memories-changed" ||

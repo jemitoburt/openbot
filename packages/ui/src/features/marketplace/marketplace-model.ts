@@ -51,11 +51,24 @@ export interface MarketplaceConnector {
   readonly connect?: (() => void) | undefined;
 }
 
-/**
- * What the Marketplace view reads and asks for. The renderer builds it from its IPC calls, and a
- * story builds it from fixtures. Each action reports its own failure through `error`.
- */
+/** A reviewed feature that runs inside OpenBot. */
+export interface MarketplaceFeaturePlugin {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  installed: boolean;
+}
+
+/** Typed data and actions supplied by the host controller or a story. */
 export interface MarketplaceModel {
+  /** Absent on clients that do not expose desktop feature plugins. */
+  plugins?: (() => readonly MarketplaceFeaturePlugin[]) | undefined;
+  pluginBusy?: ((id: string) => boolean) | undefined;
+  canManagePlugins?: (() => boolean) | undefined;
+  setPluginInstalled?: ((id: string, installed: boolean) => void | Promise<void>) | undefined;
+  openPlugin?: ((id: string) => void) | undefined;
+
   listAgents: CatalogList<MarketplaceAgentSummary>;
   agentHomeCache?: MarketplaceHomeCache<MarketplaceAgentSummary> | undefined;
   loadAgent: (id: string) => Promise<MarketplaceAgentDetail | undefined>;

@@ -8,6 +8,7 @@ import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { isUiBlockId, UI_BLOCK_LIMITS } from "@openbot/contracts/ui-blocks";
 import { z } from "zod";
 import { interruptAgentToolSchema } from "./agent/agent-interrupt-tool";
+import { DASHBOARD_TOOL_DEFINITIONS } from "./agent/dashboard-tools";
 import { DATA_TOOL_DEFINITIONS } from "./agent/data-tools";
 import { HISTORY_TOOL_DEFINITIONS } from "./agent/history-tools";
 import { MEMORY_RECALL_TOOL_DEFINITIONS } from "./agent/memory-tool-inputs";
@@ -242,6 +243,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   ...MESSAGING_TOOL_DEFINITIONS,
   ...HISTORY_TOOL_DEFINITIONS,
   ...DATA_TOOL_DEFINITIONS,
+  ...DASHBOARD_TOOL_DEFINITIONS,
   ...LOCAL_SKILL_TOOL_DEFINITIONS,
   ...ROUTINE_FLOW_TOOL_DEFINITIONS,
   {

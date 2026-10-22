@@ -219,6 +219,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
           blockedServer={blockedRemoteServer()}
           onRetryServer={retryServerConnection}
           windowPage={windowPage.page()}
+          marketplaceModal
           left={
             <>
               <WorkspaceServerRail />
