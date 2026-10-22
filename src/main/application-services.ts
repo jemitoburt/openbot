@@ -168,6 +168,7 @@ import { DynamicIslandFailed, DynamicIslandWindowController, toDynamicIslandFail
 import { githubAppConfig } from "./github-connector-config";
 import { GitHubConnectorService } from "./github-connector-service";
 import { GitHubConnectorStore } from "./github-connector-store";
+import { HermesImportService } from "./hermes-import-service";
 import { HostEventsRuntime } from "./host-events-runtime";
 import { HostEventsService } from "./host-events-service";
 import { HostService } from "./host-service";
@@ -180,6 +181,7 @@ import { HostedSiteDesktopService } from "./hosted-site-service";
 import { IdleRestart } from "./idle-restart";
 import { loadIngressQueueKey } from "./ingress-queue-key";
 import { InstanceTransferService } from "./instance-transfer-service";
+import { prepareToolRuntimeForTest } from "./ipc/mcp-server-handlers";
 import { LanguageService } from "./language-service";
 import { localRoutineFeedDocument } from "./local-routine-calendar";
 import { createLoginItem } from "./login-item";
@@ -327,6 +329,8 @@ const MCP_OAUTH_PROXY_FILE = "openbot-mcp-oauth-proxy-v1.json";
 const GITHUB_CONNECTOR_FILE = "openbot-github-connector-v1.json";
 /** The 1Password service account token of this computer, with the same cipher. */
 const ONEPASSWORD_CONNECTOR_FILE = "openbot-onepassword-connector-v1.json";
+/** Which agent each imported Hermes profile made, so a second import updates that agent. */
+const HERMES_IMPORT_LINKS_FILE = "openbot-hermes-imports-v1.json";
 
 /**
  * Where each service stops, as a position in the shutdown sequence rather than a position in the
@@ -440,6 +444,8 @@ export interface ApplicationServiceContext {
   forwardVoiceStreamTranscript: (transcript: VoiceStreamTranscript) => void;
   forwardSpeechModelStatus: (status: SpeechModelStatus) => void;
   prepareForUpdateInstall: () => Promise<void>;
+  /** True once a quit starts, also before this function returns. See `CuaDriverRuntimeOptions.quitting`. */
+  quitting: () => boolean;
 }
 
 /** Everything the entry point wires up, registers IPC handlers against, and shuts down. */
@@ -517,6 +523,7 @@ export interface ApplicationServices {
   marketplaceAgents: AgentMarketplaceService;
   agentTemplates: AgentTemplateService;
   agentImport: AgentImportService;
+  hermesImport: HermesImportService;
   instanceTransfer: InstanceTransferService;
   voice: VoiceTranscriptionService;
   speech: VoiceSpeechService;
@@ -777,6 +784,7 @@ export async function createApplicationServices({
   forwardVoiceStreamTranscript,
   forwardSpeechModelStatus,
   prepareForUpdateInstall,
+  quitting,
 }: ApplicationServiceContext): Promise<ApplicationServices> {
   // First, so the provider lines of the whole startup reach the file.
   teardown.push(
@@ -1331,6 +1339,7 @@ export async function createApplicationServices({
     onDiagnostic: (message) => {
       Effect.runFork(appendRemoteDiagnosticLog(join(app.getPath("userData"), "logs", "remote"), "cua-driver", message));
     },
+    quitting,
   });
   // After the provider runtimes, which hold the `cua-driver mcp` children that talk to this
   // daemon: stopping it first would leave them reading a socket nothing answers.
@@ -1430,6 +1439,14 @@ export async function createApplicationServices({
     mailbox,
     browser,
     visualPreview: new ChatVisualPreviewer(),
+    prepareMcpTest: (config) =>
+      prepareToolRuntimeForTest(config, {
+        startToolRuntimes: () => {
+          Effect.runFork(providerRuntimes.ensureToolRuntimes());
+        },
+        ensureToolRuntimesReady: () => providerRuntimes.ensureToolRuntimesReady(),
+        toolRuntimes: () => providerRuntimes.mcpToolRuntimes(),
+      }),
     // `desktopCapturer` captures the display OpenBot is on. With an agent display of its own, that
     // is only the OpenBot window, so agents take their screenshots with the Computer Use driver.
     screenCapture: hasSeparateAgentDisplay(process.platform)
@@ -1656,8 +1673,8 @@ export async function createApplicationServices({
   service.setComputerUseCapability(computerUseCapability(cuaDriver.lastState));
   cuaDriver.onStateChanged((state) => service.setComputerUseCapability(computerUseCapability(state)));
   // Only when a live session would hold the wrong tool set: this deactivates every agent's stored
-  // provider session, so the driver stays quiet for a grant, for the warm-up below, and for the
-  // stop at teardown, where the sessions are being left for the next run.
+  // provider session, so the driver stays quiet for a grant, for the warm-up below, and from the
+  // moment OpenBot quits, where the sessions are being left for the next run.
   cuaDriver.onMcpServerChanged(() => {
     void runCauseEffect(service.notifyComputerUseChanged()).catch((error) =>
       logger.warn("Provider tools did not refresh.", toLogValue(error)),
@@ -1913,6 +1930,26 @@ export async function createApplicationServices({
     () => host.channelActor(),
     () => serverTimezone.effective(),
     join(app.getPath("userData"), "agent-import-uploads"),
+  );
+  // Hermes profiles become agents through the same services; MCP servers through the MCP settings.
+  const hermesImport = new HermesImportService(
+    {
+      listAgents: () => service.listAgents(),
+      createAgentProfile: (input) => service.createAgentProfile(input),
+      updateAgent: (input) => service.updateAgent(input),
+      deleteAgent: (agentId) => service.deleteAgent(agentId),
+      createRoutine: (input, options) => service.createRoutine(input, options),
+      listRoutines: (agentId) => service.listRoutines(agentId),
+      createMemory: (input) => service.createMemory(input),
+      listMemories: (agentId) => service.listMemories(agentId),
+      memoryLimit: () => service.memoryLimit(),
+      initializeMemorySelection: (agentId) => service.initializeMemorySelection(agentId),
+      listMcpServers: () => service.listMcpServers(),
+      saveMcpServer: (config) => service.saveMcpServer({ config }),
+    },
+    { library: () => skills.requireLocalLibrary(), installLocal: (input) => skills.installLocal(input) },
+    join(app.getPath("userData"), HERMES_IMPORT_LINKS_FILE),
+    () => serverTimezone.effective(),
   );
   // The same owners the Settings screens write through, so an import has their checks and restarts.
   const instanceTransfer = new InstanceTransferService({
@@ -2733,6 +2770,7 @@ export async function createApplicationServices({
     marketplaceAgents,
     agentTemplates,
     agentImport,
+    hermesImport,
     instanceTransfer,
     voice,
     speech,

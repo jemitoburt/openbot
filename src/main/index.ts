@@ -260,6 +260,12 @@ let systemSessionEnding = false;
 let systemSessionEndFlushStarted = false;
 let relaunchRequested = false;
 /**
+ * Set by a quit signal, by `before-quit` and by a Windows `session-end`, and never cleared. Not
+ * `isQuitting`: a Windows session end that another app cancels also sets that, and then OpenBot
+ * keeps running.
+ */
+let quitStarted = false;
+/**
  * The link kinds a renderer is ever told about.
  *
  * `mcp-auth` is not one of them. It carries an OAuth grant for an MCP server, which is a secret,
@@ -280,7 +286,11 @@ const MAIN_WINDOW_STATE_FILE = "openbot-main-window-state-v1.json";
 // services do not stop. A hosted server's boat pre-stop hook stops it this way before the disk save
 // (`scripts/hosting/openbot-boat-pre-stop`).
 if (!app.isPackaged || hostedServer || serverMode) {
-  const quitAfterSignal = () => app.quit();
+  const quitAfterSignal = () => {
+    // Before `app.quit()`: the same signal can stop the Computer Use driver first.
+    quitStarted = true;
+    app.quit();
+  };
   process.once("SIGINT", quitAfterSignal);
   process.once("SIGTERM", quitAfterSignal);
   process.once("SIGHUP", quitAfterSignal);
@@ -443,6 +453,8 @@ function attachWindowsSessionEndHandlers(window: BrowserWindow): void {
   window.on("session-end", () => {
     systemSessionEnding = true;
     isQuitting = true;
+    // Windows can stop the Computer Use driver first, and sends no `before-quit` for a session end.
+    quitStarted = true;
     void runCauseEffect(windows.flushMainWindowBounds()).catch((error) =>
       logger.error("Unable to save the main window position during Windows session end:", toLogValue(error)),
     );
@@ -515,6 +527,7 @@ function registerIpcHandlers({
   marketplaceAgents,
   agentTemplates,
   agentImport,
+  hermesImport,
   instanceTransfer,
   voice,
   speech,
@@ -590,12 +603,13 @@ function registerIpcHandlers({
     }),
     ...agentImportIpcHandlers({
       agentImport,
+      hermesImport,
       remoteServers,
       getMainWindow,
       translate: language.translate,
-      exportSkillPath: app.isPackaged
-        ? join(process.resourcesPath, "agent-import", "grok-bot", "SKILL.md")
-        : resolve(__dirname, "../../resources/agent-import/grok-bot/SKILL.md"),
+      exportSkillDirectory: app.isPackaged
+        ? join(process.resourcesPath, "agent-import")
+        : resolve(__dirname, "../../resources/agent-import"),
     }),
     ...instanceTransferIpcHandlers({ instanceTransfer, remoteServers, getMainWindow, translate: language.translate }),
     ...updateIpcHandlers({ updater, updatePreferenceFile, requestedUpdate, idleRestart }),
@@ -1003,6 +1017,7 @@ if (!hasSingleInstanceLock) {
         forwardVoiceStreamTranscript,
         forwardSpeechModelStatus,
         prepareForUpdateInstall,
+        quitting: () => quitStarted,
       });
       services = built;
       performance.mark("openbot:services-built");
@@ -1308,6 +1323,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", (event) => {
   isQuitting = true;
+  quitStarted = true;
   if (systemSessionEnding) {
     if (services) void Effect.runPromise(services.updater.stop());
     if (services)
