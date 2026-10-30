@@ -75,6 +75,7 @@ import {
 import { describeBrowserTarget, stopLoadingAndWait, waitForLoading } from "./browser-navigation";
 import { createFramePacer } from "./browser-screencast-pacing";
 import type { VaultCardSecret } from "./vault-items";
+import { TimeoutError } from "./with-timeout";
 
 const ACTION_TIMEOUT_MS = 10_000;
 const WAIT_TIMEOUT_MS = 30_000;
@@ -2144,8 +2145,8 @@ export class BrowserCdpEngine {
               Effect.catch((failure) =>
                 browserSync(() => {
                   const error = failure.cause;
-                  if (error instanceof Error && error.message === "DOM did not become quiet.") {
-                    throw new Error("Browser wait condition timed out.");
+                  if (error instanceof TimeoutError) {
+                    throw new TimeoutError("Browser wait condition timed out.");
                   }
                   throw error;
                 }),
@@ -2154,7 +2155,7 @@ export class BrowserCdpEngine {
             if (yield* matches()) return;
           }
           const remaining = deadline - Date.now();
-          if (remaining <= 0) return yield* browserFailure(new Error("Browser wait condition timed out."));
+          if (remaining <= 0) return yield* browserFailure(new TimeoutError("Browser wait condition timed out."));
           yield* waitForPageSignal(this.#contents, Math.min(remaining, 500));
         }
       }),
@@ -2233,7 +2234,7 @@ export class BrowserCdpEngine {
             Effect.catch((failure) =>
               browserSync(() => {
                 const error = failure.cause;
-                if (error instanceof Error && error.message === "DOM did not become quiet.") return true;
+                if (error instanceof TimeoutError) return true;
                 if (navigationGeneration !== this.#navigationGeneration || this.#contents.isLoading()) return false;
                 throw error;
               }),
@@ -2831,7 +2832,7 @@ export class BrowserCdpEngine {
 
 function assertTypingProgressBeforeDeadline(deadline: number | undefined, sent: number, total: number): void {
   if (deadline === undefined || Date.now() < deadline) return;
-  throw new Error(
+  throw new TimeoutError(
     `Browser typing timed out after ${sent} of ${total} characters reached the page. The page kept them. Read the page before sending the rest, or the repeated part is entered twice.`,
   );
 }
@@ -2910,7 +2911,7 @@ const waitForDomQuietAcrossTargets = Effect.fn("Browser.waitForDomQuietAcrossTar
   captures: SnapshotTarget[],
   timeoutMs: number,
 ) {
-  if (timeoutMs <= 0) return yield* browserFailure(new Error("DOM did not become quiet."));
+  if (timeoutMs <= 0) return yield* browserFailure(new TimeoutError("DOM did not become quiet."));
   const deadlineMs = Math.max(1, Math.floor(timeoutMs));
   const results = yield* Effect.all(
     captures.map((capture) =>
@@ -2989,7 +2990,7 @@ const waitForDomQuietAcrossTargets = Effect.fn("Browser.waitForDomQuietAcrossTar
     { concurrency: "unbounded" },
   );
   if (results.some((result) => recordValue(result.result)?.value !== true)) {
-    return yield* browserFailure(new Error("DOM did not become quiet."));
+    return yield* browserFailure(new TimeoutError("DOM did not become quiet."));
   }
 });
 

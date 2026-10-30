@@ -93,6 +93,8 @@ the `mp4-attachments` capability, because a host with only `media-attachments` r
 `browser-tools.ts` defines provider schemas and parses each call into a typed tool and its arguments.
 `browser-tool-actions.ts` maps input tools to CDP operations. It does not own tabs or import the host.
 `BrowserHost` owns tab access checks, operation queues, focus, deadlines, and persistent browser state.
+Browser deadlines use `TimeoutError`. Error text from an operation does not identify a deadline.
+A completed action can outlast its settling deadline, but an ordinary settling failure remains a failure.
 The browser session and service-worker fallback remove the `OpenBot/` and `Electron/` user-agent
 tokens. They keep the installed Chromium version and host platform. Requests to `accounts.google.com`
 keep the `Electron/` token because Google rejects the account identifier step without it. This

@@ -481,11 +481,11 @@ const finishesWithin = <A, E>(work: Effect.Effect<A, E>, milliseconds: number) =
   );
 
 export function isTimeoutError(error: unknown): boolean {
-  return error instanceof Error && /timed out/i.test(error.message);
+  return error instanceof TimeoutError;
 }
 
 export function remainingTime(deadline: number, message: string): number {
   const remaining = deadline - Date.now();
-  if (remaining <= 0) throw new Error(message);
+  if (remaining <= 0) throw new TimeoutError(message);
   return remaining;
 }

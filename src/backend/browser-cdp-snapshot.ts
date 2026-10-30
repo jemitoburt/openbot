@@ -17,6 +17,7 @@ import {
   textMatches,
 } from "./browser-cdp-values";
 import { browserFailure, browserSync } from "./browser-effects";
+import { TimeoutError } from "./with-timeout";
 
 const MAX_SNAPSHOT_ELEMENTS = 200;
 const MAX_SNAPSHOT_CANDIDATES = MAX_SNAPSHOT_ELEMENTS * 2;
@@ -378,7 +379,7 @@ export const pageContainsText = Effect.fn("Browser.pageContainsText")(function* 
     ).pipe(Effect.catch(() => Effect.succeed(null)));
     yield* browserSync(() => assertBeforeDeadline(deadline));
     const value = recordValue(recordValue(result?.result)?.value);
-    if (value?.expired === true) return yield* browserFailure(new Error("Browser wait condition timed out."));
+    if (value?.expired === true) return yield* browserFailure(new TimeoutError("Browser wait condition timed out."));
     if (value?.matched === true) return true;
   }
   return false;

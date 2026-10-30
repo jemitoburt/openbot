@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { constants } from "node:fs";
 import { mkdir, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -19,8 +20,10 @@ import {
 import { BrowserUploads } from "../src/backend/agent/browser-uploads";
 import { attachmentCall } from "../src/backend/attachment-effects";
 import { BrowserHost } from "../src/backend/browser-host";
+import { navigateAndWait } from "../src/backend/browser-navigation";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { type DynamicToolResult, getString } from "../src/backend/protocol";
+import { TimeoutError } from "../src/backend/with-timeout";
 import { runSecretHandoffScenario } from "./browser-secret-smoke";
 import { waitForPresentedFrame } from "./browser-smoke-frames";
 
@@ -433,6 +436,7 @@ const SCENARIOS = [
   "tool-boundary",
   "evaluation",
   "wait-deadlines",
+  "timeout-classification",
   "live-view",
   "secret-handoff",
   "popups",
@@ -522,6 +526,8 @@ async function main(): Promise<void> {
           await runSecretHandoffScenario(browser, origin);
         } else if (scenario === "tool-boundary") {
           await runToolBoundaryScenario(browser, origin);
+        } else if (scenario === "timeout-classification") {
+          await runTimeoutClassification(browser, origin);
         } else if (scenario === "redirect-navigation") {
           await runRedirectNavigationScenario(browser, origin);
         } else {
@@ -613,6 +619,7 @@ async function main(): Promise<void> {
 
     await runDoubleClickScenario(browser, origin);
     await runRedirectNavigationScenario(browser, origin);
+    await runTimeoutClassification(browser, origin);
     const v2Tab = await runCauseEffect(browser.open(`${origin}/v2`, "smoke-thread", "smoke-bot"));
     const v2Contents = webContents
       .getAllWebContents()
@@ -2112,6 +2119,87 @@ async function runBackgroundScenario(browser: BrowserHost, origin: string): Prom
   } finally {
     await runCauseEffect(browser.close(tab.id));
     await runCauseEffect(browser.close(other.id));
+  }
+}
+
+async function runTimeoutClassification(browser: BrowserHost, origin: string): Promise<void> {
+  const { tab, contents } = await openTabWithContents(browser, origin, "smoke-thread", "smoke-bot");
+  const native = contents.debugger.sendCommand.bind(contents.debugger);
+  const cases: Array<{ name: string; passed: boolean; success: boolean; clicks: number; error: string }> = [];
+  try {
+    for (const message of ["The site says timed out, but the operation failed.", "DOM did not become quiet.", null]) {
+      await contents.executeJavaScript(
+        `document.body.innerHTML = '<button>Timeout classification</button>'; globalThis.timeoutClicks = 0;
+        document.querySelector('button').onclick = event => {
+          if (!event.isTrusted) return;
+          globalThis.timeoutClicks++;
+          if (${message === null}) globalThis.timeoutNoise = setInterval(() => document.body.toggleAttribute('data-noise'), 10);
+        }; true`,
+        true,
+      );
+      await waitForPresentedFrame(contents);
+      const snapshot = await runCauseEffect(browser.snapshot(tab.id));
+      const target = snapshot.elements.find((element) => element.name === "Timeout classification");
+      assert(target);
+      let injected = false;
+      contents.debugger.sendCommand = async (method, params, sessionId) => {
+        const result = await native(method, params, sessionId);
+        if (
+          message !== null &&
+          !injected &&
+          method === "Runtime.evaluate" &&
+          isString(params?.expression) &&
+          params.expression.includes("const observers = [];")
+        ) {
+          injected = true;
+          throw new Error(message);
+        }
+        return result;
+      };
+      let result: DynamicToolResult;
+      try {
+        result = await callBrowserTool(browser, "click", {
+          tabId: tab.id,
+          target: { kind: "ref", ref: target.ref, revision: snapshot.revision },
+          timeoutMs: 1_000,
+        });
+      } finally {
+        contents.debugger.sendCommand = native;
+        await contents.executeJavaScript("clearInterval(globalThis.timeoutNoise); true", true);
+      }
+      const clicks = await contents.executeJavaScript("globalThis.timeoutClicks");
+      const error = result.success ? "" : toolError(result);
+      const passed =
+        clicks === 1 && (message === null ? result.success : injected && !result.success && error.includes(message));
+      cases.push({ name: message ?? "owned settling deadline", passed, success: result.success, clicks, error });
+      await runCauseEffect(browser.snapshot(tab.id));
+    }
+    const navigationFailure = await Effect.runPromise(
+      Effect.flip(navigateAndWait(contents, () => contents.loadURL(`${origin}/slow-document`), 50)),
+    );
+    const navigationDeadline = navigationFailure.cause instanceof TimeoutError;
+    await mkdir(".openbot-build", { recursive: true });
+    await writeFile(
+      ".openbot-build/browser-timeout-classification.json",
+      JSON.stringify(
+        {
+          status: navigationDeadline && cases.every((item) => item.passed) ? "passed" : "failed",
+          versions: process.versions,
+          cases,
+          navigationDeadline,
+        },
+        null,
+        2,
+      ),
+    );
+    assert(
+      cases.every((item) => item.passed),
+      JSON.stringify(cases),
+    );
+    assert(navigationDeadline, "The native navigation deadline did not use TimeoutError.");
+  } finally {
+    contents.debugger.sendCommand = native;
+    await runCauseEffect(browser.close(tab.id));
   }
 }
 
