@@ -437,6 +437,7 @@ const SCENARIOS = [
   "secret-handoff",
   "popups",
   "redirect-navigation",
+  "snapshot-viewport",
 ];
 
 void main().catch((error) => {
@@ -524,6 +525,8 @@ async function main(): Promise<void> {
           await runToolBoundaryScenario(browser, origin);
         } else if (scenario === "redirect-navigation") {
           await runRedirectNavigationScenario(browser, origin);
+        } else if (scenario === "snapshot-viewport") {
+          await runSnapshotViewportScenario(browser, origin);
         } else {
           const { tab, contents } = await openTabWithContents(browser, `${origin}/v2`, "smoke-thread", "smoke-bot");
           try {
@@ -551,6 +554,7 @@ async function main(): Promise<void> {
       }
       return;
     }
+    await runSnapshotViewportScenario(browser, origin);
     const documentChangedTabs: string[] = [];
     const retainedDocumentChanges: Array<{ tabId: string; documentIds: ReadonlySet<string> }> = [];
     browser.onDocumentChanged((tabId, documentIds) => {
@@ -1954,6 +1958,69 @@ async function main(): Promise<void> {
     if (server.listening) server.close();
     if (!configuredRoot) await rm(temporaryRoot, { recursive: true, force: true });
     app.quit();
+  }
+}
+
+async function runSnapshotViewportScenario(browser: BrowserHost, origin: string): Promise<void> {
+  const { tab, contents } = await openTabWithContents(browser, origin, "smoke-thread", "smoke-bot");
+  const checks: Array<{ name: string; passed: boolean }> = [];
+  try {
+    await contents.executeJavaScript(
+      `document.body.innerHTML = '<nav>' + Array.from({ length: 450 }, (_, index) => '<button style="display:block;height:32px">Earlier ' + index + '</button>').join('') + '</nav><main id="choices"><a href="#one">Visible choice one</a><br><a href="#two">Visible choice two</a><button hidden>Hidden choice</button><div inert><button>Inert choice</button></div><div id="shadow-choice"></div></main><button style="position:fixed;top:0;right:0">Fixed choice</button>'; document.querySelector('#shadow-choice').attachShadow({ mode: 'open' }).innerHTML = '<button>Shadow choice</button>'; document.querySelector('#choices').scrollIntoView(); true`,
+      true,
+    );
+    await waitForPresentedFrame(contents);
+    const scrolled = await runCauseEffect(browser.snapshot(tab.id));
+    checks.push({
+      name: "scrolled controls after 450 earlier controls remain available",
+      passed: ["Visible choice one", "Visible choice two", "Shadow choice", "Fixed choice"].every((name) =>
+        scrolled.elements.some((element) => element.name === name),
+      ),
+    });
+    checks.push({
+      name: "hidden and inert controls stay excluded",
+      passed: !scrolled.elements.some((element) => element.name === "Hidden choice" || element.name === "Inert choice"),
+    });
+    checks.push({
+      name: "element count and serialized size remain bounded",
+      passed:
+        scrolled.elements.length === 200 &&
+        scrolled.truncated &&
+        Buffer.byteLength(JSON.stringify(scrolled)) <= 128 * 1024,
+    });
+    await contents.executeJavaScript("scrollTo(0, 0); true", true);
+    await waitForPresentedFrame(contents);
+    const returned = await runCauseEffect(browser.snapshot(tab.id));
+    checks.push({
+      name: "scrolling back restores earlier controls and keeps the fixed control",
+      passed: ["Earlier 0", "Fixed choice"].every((name) => returned.elements.some((element) => element.name === name)),
+    });
+    await contents.executeJavaScript(
+      "document.body.innerHTML = '<button>Visible ordinary control</button><button style=\"position:absolute;top:200vh\">Outside ordinary control</button>'; scrollTo(0, 0); true",
+      true,
+    );
+    const ordinary = await runCauseEffect(browser.snapshot(tab.id));
+    checks.push({
+      name: "offscreen controls remain available when the candidate budget permits",
+      passed:
+        ordinary.elements.length === 2 &&
+        ["Visible ordinary control", "Outside ordinary control"].every((name) =>
+          ordinary.elements.some((element) => element.name === name),
+        ),
+    });
+    await mkdir(".openbot-build", { recursive: true });
+    await writeFile(
+      ".openbot-build/browser-snapshot-viewport.json",
+      JSON.stringify(
+        { status: checks.every((check) => check.passed) ? "passed" : "failed", versions: process.versions, checks },
+        null,
+        2,
+      ),
+    );
+    const failed = checks.filter((check) => !check.passed);
+    if (failed.length) throw new Error(failed.map((check) => check.name).join("; "));
+  } finally {
+    await runCauseEffect(browser.close(tab.id));
   }
 }
 

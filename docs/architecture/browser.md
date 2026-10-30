@@ -93,6 +93,10 @@ the `mp4-attachments` capability, because a host with only `media-attachments` r
 `browser-tools.ts` defines provider schemas and parses each call into a typed tool and its arguments.
 `browser-tool-actions.ts` maps input tools to CDP operations. It does not own tabs or import the host.
 `BrowserHost` owns tab access checks, operation queues, focus, deadlines, and persistent browser state.
+Bounded snapshots put controls in the viewport before offscreen controls in each candidate scan.
+The existing limits remain: 10,000 scanned nodes, 400 candidates, 200 returned controls, and 128 KiB
+of serialized output. The focused check is `bun run test:browser --scenario=snapshot-viewport`;
+the default browser smoke flow also runs it and writes `.openbot-build/browser-snapshot-viewport.json`.
 The browser session and service-worker fallback remove the `OpenBot/` and `Electron/` user-agent
 tokens. They keep the installed Chromium version and host platform. Requests to `accounts.google.com`
 keep the `Electron/` token because Google rejects the account identifier step without it. This
