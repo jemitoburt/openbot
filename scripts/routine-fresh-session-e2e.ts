@@ -6,7 +6,8 @@
 // each run starts an ephemeral session and closes it, that its request stays small, that its answer
 // shows in the chat, that the chat keeps its session, and that the next chat turn reads the answers.
 // It also drives saved password and authenticator fills through the routine tool router, checks
-// the sign-in guidance, and checks that no secret reaches the provider.
+// the sign-in guidance, and checks that no secret reaches the provider. Discovery also reuses a
+// returned schema, describes a result without one, and retains the original tool permission check.
 // `bun scripts/routine-fresh-session-e2e.ts`. Writes .openbot-build/routine-fresh-session-e2e/report.json.
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -17,7 +18,7 @@ import { DatabaseSync } from "node:sqlite";
 import { AGENT_PROVIDERS, type AgentEvent, type BrowserTab, decodeUsageTokens } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
-import { getRecord, getString } from "../src/backend/protocol";
+import { getArray, getRecord, getString } from "../src/backend/protocol";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/routine-fresh-session-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-routine-session-"));
@@ -138,10 +139,14 @@ const answer = (message) => {
         submitTarget: { kind: "css", selector: "#submit" },
       });
       const calls = text.includes(${JSON.stringify(ROUTINE_MARK)}) ? [
-        { tool: "tool_describe", arguments: { names: ["openbot_browser.list_logins"] } },
+        { tool: "tool_search", arguments: { query: "openbot_browser.open" } },
         browserCall("open", { url: ${JSON.stringify(VAULT_ORIGIN)} }),
+        { tool: "tool_search", arguments: { query: "browser logins", limit: 10 } },
+        { tool: "tool_describe", arguments: { names: ["openbot_browser.list_logins"] } },
         browserCall("list_logins", { tabId: "routine-tab" }),
         secret("password"), secret("authenticator"),
+        { tool: "tool_search", arguments: { query: "openbot.start_new_chat" } },
+        { tool: "tool_call", arguments: { name: "openbot.start_new_chat", arguments: {} } },
       ] : [];
       callNext({ threadId: params.threadId, turnId, calls, finish });
       return;
@@ -191,6 +196,11 @@ interface LogEntry {
   error?: { message: string };
 }
 
+interface DiscoveryAnswer {
+  tools: { name: string; hasSchema: boolean }[];
+  hasGuidance: boolean;
+}
+
 interface TurnReport {
   name: string;
   threadId: string;
@@ -208,6 +218,13 @@ const report: {
   routineAnswersInChat: string[];
   digestInNextTurn?: { marker: boolean; answers: string[] };
   checks: { name: string; passed: boolean }[];
+  discovery?: {
+    readyNames: string[];
+    schemaMissingNames: string[];
+    describedNames: string[];
+    permissionDenied: boolean;
+    unconditionalDescribeInstruction: boolean;
+  };
   passed: boolean;
   error?: string;
 } = { threadStarts: [], closedThreads: [], turns: [], routineAnswersInChat: [], checks: [], passed: false };
@@ -451,9 +468,68 @@ try {
     .map((entry) => entry.threadId);
   const routineStarts = report.threadStarts.filter((entry) => entry.ephemeral === true);
   const results = entries.filter((entry) => entry.method === "tool-result");
+  const toolAnswer = (entry: LogEntry): DiscoveryAnswer => {
+    const answer = JSON.parse(entry.result?.contentItems[0]?.text ?? "{}");
+    return {
+      tools: getArray(answer, "tools").map((tool) => {
+        const name = getString(tool, "name");
+        assert.ok(name, "A discovery result names its tool.");
+        return { name, hasSchema: getRecord(tool, "inputSchema") !== null };
+      }),
+      hasGuidance: getArray(answer, "guidance").some((line) => typeof line === "string" && line.length > 0),
+    };
+  };
+  const searched = results.filter((entry) => entry.tool === "tool_search").map(toolAnswer);
+  const ready = searched.filter((answer) =>
+    answer.tools.some((tool) => tool.name === "openbot_browser.open" && tool.hasSchema),
+  );
+  const missing = searched.filter(
+    (answer) => answer.tools.length === 10 && answer.tools.every((tool) => !tool.hasSchema),
+  );
+  const described = results.filter((entry) => entry.tool === "tool_describe").map(toolAnswer);
+  const denied = results.filter((entry) => entry.tool === "openbot.start_new_chat");
+  report.discovery = {
+    readyNames: (ready[0]?.tools ?? []).filter((tool) => tool.hasSchema).map((tool) => tool.name),
+    schemaMissingNames: (missing[0]?.tools ?? []).map((tool) => tool.name),
+    describedNames: (described[0]?.tools ?? []).map((tool) => tool.name),
+    permissionDenied:
+      denied.length === 2 &&
+      denied.every(
+        (entry) =>
+          entry.result?.success === false &&
+          !entry.error &&
+          JSON.stringify(entry.result).includes("The user has not allowed you to start a new chat."),
+      ),
+    unconditionalDescribeInstruction: routineStarts.some((entry) =>
+      entry.instructions?.includes("Describe a tool before its first call."),
+    ),
+  };
+  pass(
+    "Exact search returns a schema and browser guidance before direct tool_call",
+    ready.length === 2 &&
+      ready.every((answer) => answer.hasGuidance) &&
+      results.filter((entry) => entry.tool === "openbot_browser.open").length === 2 &&
+      !described.some((answer) => answer.tools.some((tool) => tool.name === "openbot_browser.open")),
+  );
+  pass(
+    "Broad search returns the selected tool without its schema",
+    missing.length === 2 &&
+      missing.every((answer) => answer.tools.some((tool) => tool.name === "openbot_browser.list_logins")),
+  );
+  pass(
+    "Describe supplies the selected schema when search omitted it",
+    described.length === 2 &&
+      described.every((answer) =>
+        answer.tools.some((tool) => tool.name === "openbot_browser.list_logins" && tool.hasSchema),
+      ),
+  );
+  pass("Schema discovery does not bypass the original new-chat permission", report.discovery.permissionDenied);
+  const vaultResults = results.filter(
+    (entry) => entry.tool !== "tool_search" && entry.tool !== "openbot.start_new_chat",
+  );
   pass(
     "Routine Vault tool calls succeed",
-    results.length === 10 && results.every((entry) => entry.result?.success && !entry.error),
+    vaultResults.length === 10 && vaultResults.every((entry) => entry.result?.success && !entry.error),
   );
   pass(
     "Each routine fills its saved password and authenticator code",
