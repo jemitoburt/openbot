@@ -437,6 +437,7 @@ const SCENARIOS = [
   "secret-handoff",
   "popups",
   "redirect-navigation",
+  "later-frame-text",
 ];
 
 void main().catch((error) => {
@@ -524,6 +525,8 @@ async function main(): Promise<void> {
           await runToolBoundaryScenario(browser, origin);
         } else if (scenario === "redirect-navigation") {
           await runRedirectNavigationScenario(browser, origin);
+        } else if (scenario === "later-frame-text") {
+          await runLaterFrameTextScenario(browser, origin);
         } else {
           const { tab, contents } = await openTabWithContents(browser, `${origin}/v2`, "smoke-thread", "smoke-bot");
           try {
@@ -613,6 +616,7 @@ async function main(): Promise<void> {
 
     await runDoubleClickScenario(browser, origin);
     await runRedirectNavigationScenario(browser, origin);
+    await runLaterFrameTextScenario(browser, origin);
     const v2Tab = await runCauseEffect(browser.open(`${origin}/v2`, "smoke-thread", "smoke-bot"));
     const v2Contents = webContents
       .getAllWebContents()
@@ -1954,6 +1958,65 @@ async function main(): Promise<void> {
     if (server.listening) server.close();
     if (!configuredRoot) await rm(temporaryRoot, { recursive: true, force: true });
     app.quit();
+  }
+}
+
+async function runLaterFrameTextScenario(browser: BrowserHost, origin: string): Promise<void> {
+  const { tab, contents } = await openTabWithContents(browser, origin, "smoke-thread", "smoke-bot");
+  try {
+    const frameOrigin = new URL(origin);
+    frameOrigin.hostname = "localhost";
+    await contents.executeJavaScript(
+      `(async () => {
+        document.body.innerHTML = Array.from({ length: 200 }, (_, index) => '<button>Parent control ' + index + '</button>').join('');
+        for (const label of ['First frame budget marker', 'Second frame budget marker']) {
+          const frame = document.createElement('iframe');
+          const loaded = new Promise(resolve => frame.onload = resolve);
+          frame.src = ${JSON.stringify(frameOrigin.origin)} + '/frame?action_label=' + encodeURIComponent(label);
+          document.body.append(frame);
+          await loaded;
+        }
+        scrollTo(0, 0);
+        return true;
+      })()`,
+      true,
+    );
+    const snapshot = await runCauseEffect(browser.snapshot(tab.id));
+    const bytes = Buffer.byteLength(JSON.stringify(snapshot));
+    const checks = [
+      {
+        name: "first cross-origin frame text is retained",
+        passed: snapshot.text.includes("First frame budget marker"),
+      },
+      {
+        name: "second cross-origin frame text is retained",
+        passed: snapshot.text.includes("Second frame budget marker"),
+      },
+      { name: "parent fills the 200-control budget", passed: snapshot.elements.length === 200 },
+      { name: "text stays within 20,000 characters", passed: snapshot.text.length <= 20_000 },
+      { name: "serialized output stays within 128 KiB", passed: bytes <= 128 * 1024 },
+      { name: "full control budget reports truncation", passed: snapshot.truncated },
+    ];
+    await mkdir(".openbot-build", { recursive: true });
+    await writeFile(
+      ".openbot-build/browser-later-frame-text.json",
+      JSON.stringify(
+        {
+          status: checks.every((check) => check.passed) ? "passed" : "failed",
+          versions: process.versions,
+          elementCount: snapshot.elements.length,
+          textLength: snapshot.text.length,
+          bytes,
+          checks,
+        },
+        null,
+        2,
+      ),
+    );
+    const failures = checks.filter((check) => !check.passed);
+    if (failures.length) throw new Error(failures.map((check) => check.name).join("; "));
+  } finally {
+    await runCauseEffect(browser.close(tab.id));
   }
 }
 
