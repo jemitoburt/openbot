@@ -8,6 +8,7 @@ import type {
   BrowserTarget,
 } from "@openbot/contracts/ipc";
 import { type DynamicRecord, isBoolean, isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
+import { sourceText } from "@openbot/i18n/source";
 import { Deferred, Effect, Exit, Fiber, Scope } from "effect";
 import type { NativeImage, WebContents } from "electron";
 import {
@@ -753,13 +754,103 @@ export class BrowserCdpEngine {
     yield* this.#leaseEffect((send) =>
       Effect.gen({ self: this }, function* () {
         const resolved = yield* this.#resolveTargetEffect(send, target, deadline);
-        if (!resolved.backendNodeId) return yield* browserFailure(new Error("Typing requires an element target."));
+        const backendNodeId = resolved.backendNodeId;
+        if (!backendNodeId) return yield* browserFailure(new Error("Typing requires an element target."));
+        const frames = new Map<string, { parentId: string | undefined; sessionId: string | undefined }>();
+        let rootFrameId = "";
+        const sessions = new Set([
+          resolved.sessionId,
+          undefined,
+          ...[...this.#targetSessions.values()].map((frame) => frame.sessionId),
+        ]);
+        for (const sessionId of sessions) {
+          const frameTree = yield* send("Page.getFrameTree", {}, sessionId);
+          const root = recordValue(frameTree.frameTree);
+          rootFrameId ||= stringValue(recordValue(root?.frame)?.id);
+          const pending: Array<{ tree: CdpResult | undefined; parentId: string | undefined }> = [
+            { tree: root, parentId: undefined },
+          ];
+          for (const entry of pending) {
+            if (!entry.tree) continue;
+            const frame = recordValue(entry.tree.frame);
+            const frameId = stringValue(frame?.id);
+            if (!frameId)
+              return yield* browserFailure(new Error(sourceText("error.backend.browserTypingTargetChanged")));
+            frames.set(frameId, {
+              parentId: stringValue(frame?.parentId) || entry.parentId,
+              sessionId: this.#targetSessions.get(frameId)?.sessionId ?? sessionId,
+            });
+            if (Array.isArray(entry.tree.childFrames))
+              pending.push(...entry.tree.childFrames.map((tree) => ({ tree: recordValue(tree), parentId: frameId })));
+          }
+          let ancestorId: string | undefined = rootFrameId;
+          while (ancestorId && frames.has(ancestorId)) ancestorId = frames.get(ancestorId)?.parentId;
+          if (!ancestorId) break;
+        }
+        const focusTargets: Array<{ backendNodeId: number; contextId: number; sessionId: string | undefined }> = [];
+        let targetFrameId = "";
+        for (const [frameId, frame] of frames) {
+          if (frame.sessionId !== resolved.sessionId) continue;
+          yield* browserSync(() => assertBeforeDeadline(deadline));
+          const contextId = yield* frameAutomationContextId(send, frameId, frame.sessionId);
+          const ownsTarget = yield* this.#callOnNode(
+            send,
+            backendNodeId,
+            "function() { return this.ownerDocument === document; }",
+            [],
+            frame.sessionId,
+            contextId,
+          );
+          if (ownsTarget !== true) continue;
+          targetFrameId = frameId;
+          focusTargets.push({ backendNodeId, contextId, sessionId: frame.sessionId });
+          break;
+        }
+        if (!targetFrameId)
+          return yield* browserFailure(new Error(sourceText("error.backend.browserTypingTargetChanged")));
+        // Native frame owners remain reachable when a parent's shadow root is closed.
+        for (let frame = frames.get(targetFrameId); frame?.parentId; frame = frames.get(frame.parentId)) {
+          const parent = frames.get(frame.parentId);
+          if (!parent) return yield* browserFailure(new Error(sourceText("error.backend.browserTypingTargetChanged")));
+          const owner = yield* send("DOM.getFrameOwner", { frameId: targetFrameId }, parent.sessionId);
+          const ownerId = numberValue(owner.backendNodeId);
+          if (!ownerId) return yield* browserFailure(new Error(sourceText("error.backend.browserTypingTargetChanged")));
+          const contextId = yield* frameAutomationContextId(send, frame.parentId, parent.sessionId);
+          focusTargets.push({ backendNodeId: ownerId, contextId, sessionId: parent.sessionId });
+          targetFrameId = frame.parentId;
+        }
+        const checkTarget = () =>
+          Effect.gen({ self: this }, function* () {
+            for (const node of focusTargets) {
+              const focused = yield* this.#callOnNode(
+                send,
+                node.backendNodeId,
+                `function() {
+                  if (!this.isConnected || this.ownerDocument !== document) return false;
+                  for (let node = this; node;) {
+                    const root = node.getRootNode();
+                    if (root.activeElement !== node) return false;
+                    if (root === document) return true;
+                    node = root.host;
+                  }
+                  return false;
+                }`,
+                [],
+                node.sessionId,
+                node.contextId,
+              );
+              if (focused !== true)
+                return yield* browserFailure(new Error(sourceText("error.backend.browserTypingTargetChanged")));
+            }
+          });
         yield* browserSync(() => assertBeforeDeadline(deadline));
         onDispatch?.();
         yield* send("DOM.focus", { backendNodeId: resolved.backendNodeId }, resolved.sessionId);
+        // Focus and input handlers can redirect the next native command to another field.
+        yield* checkTarget();
         const useEndKey = yield* this.#callOnNode(
           send,
-          resolved.backendNodeId,
+          backendNodeId,
           `function(mode) {
           if (!('value' in this) && !this.isContentEditable) throw new Error('Target does not accept text.');
           if (mode === 'replace') {
@@ -783,7 +874,11 @@ export class BrowserCdpEngine {
           [mode],
           resolved.sessionId,
         );
-        if (useEndKey === true) yield* dispatchShortcut(send, "End", resolved.sessionId);
+        if (useEndKey === true) {
+          yield* checkTarget();
+          yield* dispatchShortcut(send, "End", resolved.sessionId);
+        }
+        yield* checkTarget();
         yield* browserSync(() => assertBeforeDeadline(deadline));
         yield* send("Input.insertText", { text }, resolved.sessionId);
         // Submitting is part of typing rather than a second action, because it has to reach the node
@@ -791,6 +886,7 @@ export class BrowserCdpEngine {
         // against its pre-typing text, so a contenteditable would fail with "The target changed after
         // the snapshot" and `submit: true` would insert the text without ever submitting it.
         if (options.submit === true) {
+          yield* checkTarget();
           yield* browserSync(() => assertBeforeDeadline(deadline));
           yield* dispatchShortcut(send, "Enter", resolved.sessionId);
         }
@@ -2635,8 +2731,9 @@ export class BrowserCdpEngine {
     declaration: string,
     args: unknown[],
     sessionId?: string,
+    contextId?: number,
   ): Effect.fn.Return<unknown, BrowserOperationError> {
-    const executionContextId = yield* automationContextId(send, sessionId);
+    const executionContextId = contextId ?? (yield* automationContextId(send, sessionId));
     const resolved = yield* send("DOM.resolveNode", { backendNodeId, executionContextId }, sessionId);
     const objectId = stringValue(recordValue(resolved.object)?.objectId);
     if (!objectId) return yield* browserFailure(new Error("Element is no longer attached to the document."));

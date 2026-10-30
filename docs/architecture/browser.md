@@ -93,6 +93,10 @@ the `mp4-attachments` capability, because a host with only `media-attachments` r
 `browser-tools.ts` defines provider schemas and parses each call into a typed tool and its arguments.
 `browser-tool-actions.ts` maps input tools to CDP operations. It does not own tabs or import the host.
 `BrowserHost` owns tab access checks, operation queues, focus, deadlines, and persistent browser state.
+Targeted typing checks the original node, document, and native frame owners before text and submit
+keys. It stops when a page handler moves focus or replaces the target. Text already entered stays
+on the page. The focused check is `bun run test:browser --scenario=typing-focus`; the default smoke
+flow also runs it and writes `.openbot-build/browser-typing-focus.json`.
 The browser session and service-worker fallback remove the `OpenBot/` and `Electron/` user-agent
 tokens. They keep the installed Chromium version and host platform. Requests to `accounts.google.com`
 keep the `Electron/` token because Google rejects the account identifier step without it. This
