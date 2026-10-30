@@ -97,6 +97,12 @@ Snapshot text collection continues through later captured frames after the 200-c
 reached. The text, frame, node-scan, and serialized-byte limits remain. The focused check is
 `bun run test:browser --scenario=later-frame-text`; the default smoke flow also runs it and writes
 `.openbot-build/browser-later-frame-text.json`.
+Targeted typing checks that the target still holds focus before the End key, the text, and the
+Enter key. A page focus or input handler that moves focus stops it with an error that says if the
+text is already in the field. The check also reads each frame element that holds the target,
+because a frame in another process can keep its active element after the page takes focus.
+`bun run test:browser --scenario=typing-focus` covers it and writes
+`.openbot-build/browser-typing-focus.json`.
 The browser session and service-worker fallback remove the `OpenBot/` and `Electron/` user-agent
 tokens. They keep the installed Chromium version and host platform. Requests to `accounts.google.com`
 keep the `Electron/` token because Google rejects the account identifier step without it. This
